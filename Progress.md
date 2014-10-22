@@ -14,7 +14,7 @@ Alex and I concurred on the following design problems that need to be solved bef
 5. We can test our approach for deadlock and race conditions in popular problems like Dining philosphers.
 6. We need a seeding approach and our seeding should take into account the history of previous interruption decision when arriving at the next on.
 7. Network load and I/O delays lead to different Interleavings
-8. Preservation of the order of shared memory access and synchronization events ( prob solved in the Java lang reference 7). This can be the replay algorithm
+8. Preservation of the order of shared memory access and synchronization events.
 
 Division of Paper Reading
 
@@ -22,9 +22,11 @@ Division of Paper Reading
 ///////////////////////////
 Finding and reproducing heisenbugs in the program
 http://research.microsoft.com/en-us/projects/chess/osdi2008-chess.pdf
+Replay is pretty good. We can use it for replay design later.
 
 Effective data race detection for the kernel
 http://research.microsoft.com/pubs/139266/DataCollider%20-%20OSDI2010.pdf
+Breakpoints on data address. 
 
 Improved multithreaded unit testing
 http://mir.cs.illinois.edu/gliga/papers/JagannathETAL11IMunit.pdf
