@@ -1,0 +1,9 @@
+package firstSyncProg;
+import static java.lang.System.out;
+
+public class users extends Thread{
+	 public void run() {
+		out.println(“ this thread is running ... ”);
+	 }
+
+}

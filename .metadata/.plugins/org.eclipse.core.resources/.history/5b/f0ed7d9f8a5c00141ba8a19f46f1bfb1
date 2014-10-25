@@ -1,0 +1,9 @@
+package firstSyncProg;
+
+public class threadClass { 
+	public static void main(String [] args ) {
+		BankAccount b = new BankAccount(1000);
+        users t1 = new t1();
+        t1.start();
+	}
+}

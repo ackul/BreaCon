@@ -1,0 +1,18 @@
+package firstSyncProg;
+import static java.lang.System.out;
+
+public class users extends Thread{
+	private BankAccount acc;
+	private int amount;
+	
+	 public users(int amount) {
+		super();
+		this.amount = amount;
+	}
+
+	public void run() {
+		 
+		out.print("this thread is running ... ");
+	 }
+
+}
