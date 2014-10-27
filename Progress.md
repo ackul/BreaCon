@@ -61,6 +61,10 @@ First-class Concurrency Testing and Debugging
 http://research.microsoft.com/en-us/projects/chess/ec2-submission.pdf
 /////////////////////
 
+25/10/2014
+
+a. The priority of threads is also not a forceful mechanism of pausing threads because of the concept of priority inversion
+b. I have made a program in which if the breakpoint is toggled at the withdraw operation, exactly how the atomicity paper mentions, interleaving happens and this leads to an atomicity violation.
 
 
 
