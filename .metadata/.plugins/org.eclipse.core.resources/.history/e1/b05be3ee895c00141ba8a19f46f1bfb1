@@ -1,0 +1,16 @@
+package firstSyncProg;
+
+public class threadClass { 
+	public static void main(String [] args ) {
+		BankAccount b = new BankAccount(1000);
+        WithdrawAccount w = new WithdrawAccount(b,10);
+        Thread wt1 = new Thread(w);
+        wt1.setName("T1");
+
+        Thread wt2 = new Thread(w);
+        wt2.setName("T2");
+
+        wt1.start();
+        wt2.start();
+	}
+}

@@ -1,0 +1,14 @@
+package firstSyncProg;
+
+
+class threadClass extends Thread { 
+	public void run() {
+		
+	}
+} 
+class ThreadEx1 { 
+	public static void main(String [] args ) {
+		threadClass t = new threadClass();
+		t.start();
+	}
+}
