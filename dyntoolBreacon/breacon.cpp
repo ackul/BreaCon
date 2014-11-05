@@ -121,15 +121,20 @@ void finishInstrumenting(BPatch_addressSpace* app)
 
 int main(const int argc, const char** argv){   
     if (argc <= 1) {
-        printf("Usage: %s <Pthread-Executable>\n", argv[0]);     
+        printf("Usage: %s <Pthread-Executable> (Press [CTRL-C] to Stop)\n", argv[0]);     
         exit(0);
     }
+    /*Initializing a PRG for future RAND calls in the RT API
+     * The Numbers are passed to the library function for every invocation
+     */
     unsigned int seed;
     FILE *fp = fopen("/dev/urandom", "r");
     fread((unsigned int*)(&seed),sizeof(seed), 1, fp);
     fclose(fp);
     printf("The seed is %u\n",seed);
     srand(seed);
+    
+    /*We need to run forever...press CTRL-C to exit*/
     while(1){
         /*Initializing the PRG with the runCount for easy reproducibility*/
         try {
