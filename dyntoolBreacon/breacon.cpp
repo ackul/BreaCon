@@ -11,7 +11,8 @@
 #include <string>
 #include <string.h>
 #include <set>
-
+#include <stdlib.h>
+#include <stdio.h>
 using namespace std;
 
 BPatch bpatch;
@@ -64,6 +65,8 @@ void fuzzDriver(BPatch_addressSpace* app, BPatch_function *func, char *funcName)
             if (!strcmp(calledFuncName,"__pthread_mutex_unlock")) {
                 printf("Found Unlock\n");
                 vector<BPatch_snippet*> args;
+                BPatch_snippet *fmt = new BPatch_constExpr(rand()%100);
+                args.push_back(fmt);
                 app->insertSnippet(BPatch_funcCallExpr(*breaconDelay, args), **iter, BPatch_callAfter);
             }
         }
@@ -117,63 +120,73 @@ void finishInstrumenting(BPatch_addressSpace* app)
  * */
 
 int main(const int argc, const char** argv){   
-     if (argc <= 1) printf("Usage: %s <Pthread-Executable>\n", argv[0]);     
-     /*Creating and then attaching to the process. For debugging need to consider Binary Rewriting too*/
-     while(1){
-     try {
-         BPatch_addressSpace *app = startInstrumenting(create,  argv[1],  0);
-         if(!app) {
-             printf("Error: startInstrumenting failed\n");
-             exit(0);
-         }
-                
-         /*Dyninst provides a loadlibrary interface :)*/
-         char *RTLibpath="libbreacondelay.so";
-         if(!app->loadLibrary(RTLibpath)) {
-             printf("Open Library Failed \n");
-         }
-    
-         /*img - Handle to the executable file*/
-         BPatch_image *img = app->getImage();
-
-         /*Get Handle to the library functions in Advance*/
-         BPatch_module *rtLibrary = img->findModule("libbreacondelay.so");
-         if (rtLibrary == NULL){
-             printf("cannot find run time library module\n");
-        }
-         findLibFunction(rtLibrary);
-        /*
-         const BPatch_Vector<BPatch_module*> *funcVectorMod = img->getModules();
-         for (BPatch_Vector<BPatch_module*>::const_iterator iterFuncVector = funcVectorMod->begin(); iterFuncVector != funcVectorMod->end(); ++iterFuncVector) {
-             (*iterFuncVector)->getName(bufferFuncName,1023);
-            
-             printf("%s\n", bufferFuncName);
-         }
-        */
-
-         /*funcVector - Vector containing the functions in the program*/
-         const BPatch_Vector<BPatch_function*> *funcVector = img->getProcedures();
-         for (BPatch_Vector<BPatch_function*>::const_iterator iterFuncVector = funcVector->begin(); iterFuncVector != funcVector->end(); ++iterFuncVector) {
-             (*iterFuncVector)->getName(bufferFuncName,1023);
-             /*Some functions we can comfortably ignore*/
-             if (!strncmp(bufferFuncName, "std::",5)) continue;
-             if (!strncmp(bufferFuncName, "_",1)) continue;
-             if (!strncmp(bufferFuncName, "new(", 4)) continue;
-             if (!strncmp(bufferFuncName, "call_", 5)) continue;
-             if (!strncmp(bufferFuncName, "global con", 10)) continue;
-             if (!strcmp(bufferFuncName, "frame_dummy")) continue;
-    
-             /*Analyzing each function for Pthread calls and instrumenting after them*/
-             //printf("%s\n", bufferFuncName);
-             fuzzDriver(app, *iterFuncVector, bufferFuncName);
-         }
-         finishInstrumenting(app);
-     
-     
-     }
-    catch (exception& e) {
-       printf("Exception occurred: %s",e.what());
+    if (argc <= 1) {
+        printf("Usage: %s <Pthread-Executable>\n", argv[0]);     
+        exit(0);
     }
-     }
+    unsigned int seed;
+    FILE *fp = fopen("/dev/urandom", "r");
+    fread((unsigned int*)(&seed),sizeof(seed), 1, fp);
+    fclose(fp);
+    printf("The seed is %u\n",seed);
+    srand(seed);
+    while(1){
+        /*Initializing the PRG with the runCount for easy reproducibility*/
+        try {
+            /*Creating and then attaching to the process. For debugging need to consider Binary Rewriting too*/
+             BPatch_addressSpace *app = startInstrumenting(create,  argv[1],  0);
+             if(!app) {
+                 printf("Error: startInstrumenting failed\n");
+                 exit(0);
+             }
+                    
+             /*Dyninst provides a loadlibrary interface :)*/
+             char *RTLibpath="libbreacondelay.so";
+             if(!app->loadLibrary(RTLibpath)) {
+                 printf("Open Library Failed \n");
+             }
+        
+             /*img - Handle to the executable file*/
+             BPatch_image *img = app->getImage();
+
+             /*Get Handle to the library functions in Advance*/
+             BPatch_module *rtLibrary = img->findModule("libbreacondelay.so");
+             if (rtLibrary == NULL){
+                 printf("cannot find run time library module\n");
+            }
+             findLibFunction(rtLibrary);
+            /*
+             const BPatch_Vector<BPatch_module*> *funcVectorMod = img->getModules();
+             for (BPatch_Vector<BPatch_module*>::const_iterator iterFuncVector = funcVectorMod->begin(); iterFuncVector != funcVectorMod->end(); ++iterFuncVector) {
+                 (*iterFuncVector)->getName(bufferFuncName,1023);
+                
+                 printf("%s\n", bufferFuncName);
+             }
+            */
+
+             /*funcVector - Vector containing the functions in the program*/
+             const BPatch_Vector<BPatch_function*> *funcVector = img->getProcedures();
+             for (BPatch_Vector<BPatch_function*>::const_iterator iterFuncVector = funcVector->begin(); iterFuncVector != funcVector->end(); ++iterFuncVector) {
+                 (*iterFuncVector)->getName(bufferFuncName,1023);
+                 /*Some functions we can comfortably ignore*/
+                 if (!strncmp(bufferFuncName, "std::",5)) continue;
+                 if (!strncmp(bufferFuncName, "_",1)) continue;
+                 if (!strncmp(bufferFuncName, "new(", 4)) continue;
+                 if (!strncmp(bufferFuncName, "call_", 5)) continue;
+                 if (!strncmp(bufferFuncName, "global con", 10)) continue;
+                 if (!strcmp(bufferFuncName, "frame_dummy")) continue;
+        
+                 /*Analyzing each function for Pthread calls and instrumenting after them*/
+                 //printf("%s\n", bufferFuncName);
+                 fuzzDriver(app, *iterFuncVector, bufferFuncName);
+             }
+             finishInstrumenting(app);
+         
+         
+         }
+        catch (exception& e) {
+           printf("Exception occurred: %s",e.what());
+        }
+    }
     return 0;
 }

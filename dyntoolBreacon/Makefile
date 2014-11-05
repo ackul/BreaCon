@@ -9,6 +9,12 @@ breacon: breacon.o
 breacon.o: breacon.cpp
 	        $(CC) -c $(CFLAGS) -I$(DYNINST_INCLUDE) breacon.cpp -std=c++0x
 
+mutatee: mutatee.o
+	    g++ mutatee.o -o mutatee -pthread
+
+mutatee.o: mutatee.cpp
+	    g++ -c mutatee.cpp -pthread
+
 libbreacondelay:
 	gcc -fPIC -c -Wall -Werror delayLib.c
 	gcc -shared -o libbreacondelay.so delayLib.o

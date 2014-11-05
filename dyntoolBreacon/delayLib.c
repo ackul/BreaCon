@@ -3,8 +3,9 @@
 #include <stdlib.h>
 
 /*this is the library*/
-void breaconDelay()
+void breaconDelay(unsigned int random)
 {
+    if(random < 75) {
         struct timespec tim, tim2;
         tim.tv_sec = 1;
         tim.tv_nsec = 5000000L;
@@ -13,4 +14,8 @@ void breaconDelay()
             printf("Nano sleep system call failed \n");
         }
         printf("Nano sleep successfull \n");
+    }
+    else {
+        printf("Random > 75\n");
+    }
 }
