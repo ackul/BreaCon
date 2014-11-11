@@ -2,10 +2,12 @@
 #include <time.h>
 #include <stdlib.h>
 
-/*this is the library*/
+/*breaconDelay - 75% chance of the sleep being executed
+ * else do nothing
+ * */
 void breaconDelay(unsigned int random)
 {
-    if(random < 75) {
+    if(rand()%100 < random) {
         struct timespec tim, tim2;
         tim.tv_sec = 1;
         tim.tv_nsec = 5000000L;
