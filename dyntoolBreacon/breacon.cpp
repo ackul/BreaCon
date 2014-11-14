@@ -30,6 +30,9 @@ char calledFuncName[1024];
 /* handles of run-time library functions */
 BPatch_function *breaconDelay;
 
+bool createAndInsertSnippet(BPatch_addressSpace* app, std::vector<BPatch_point*>* points);
+
+
 /* 
  * FindLibFunction - Find the Delay function in the Breacon Runtime library
  * */
@@ -78,18 +81,16 @@ bool fuzzDriver(BPatch_addressSpace* app) {
         std::vector<BPatch_point*>* exitPoint =  findPoint(app, funcName, BPatch_entry);
         if (!exitPoint || exitPoint->size() == 0) {
             fprintf(stderr, "No entry points for %s\n", funcName);
-            atomicityFlag = false
+            atomicityFlag = false;
         }
         // Create and insert instrumentation snippet
-        if (atomicityFlag){
-            if (!createAndInsertSnippet(app, exitPoint)) {
+        if (atomicityFlag && !createAndInsertSnippet(app, exitPoint)) {
                 fprintf(stderr, "createAndInsertSnippet in %s failed\n",funcName);
                 exit(1);
-            }
-        }
+       }
+        
     }
     if(raceFlag) {
-
         //TODO:Instrument memory Accesses and Race condition algorithms
         /*
         const char* funcName = "";
@@ -176,6 +177,7 @@ bool createAndInsertSnippet(BPatch_addressSpace* app, std::vector<BPatch_point*>
 int main(const int argc, const char** argv, const char** envp){   
     //Adding option support so that we only instrument what is asked by the user
     int argCount;
+    int err = 0;
     if (argc > 5 || argc <=2) {
         printf("Breacon - Randomizing the Thread Scheduler\nUsage: %s <Pthread-Executable> [Options]\nOptions:\n-a => Atomicity Violation based Instrumentation\n-r => Race Condition based Instrumentation\n-all => Full Instrumentation (If you like it slow)\nPress[CTRL-C] to stop\n", argv[0]);
         exit(0);
