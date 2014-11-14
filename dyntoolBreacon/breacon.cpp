@@ -220,19 +220,37 @@ int main(const int argc, const char** argv, const char** envp){
              }*/
           
             // Find the entry point for function InterestingProcedure
-            
-            const char* interestingFuncName = "__pthread_mutex_unlock";
-            std::vector<BPatch_point*>* exitPoint =  findPoint(app, interestingFuncName, BPatch_entry);
-            if (!exitPoint || exitPoint->size() == 0) {
-                fprintf(stderr, "No entry points for %s\n", interestingFuncName);
-                exit(1);
+            if(atomicityFlag || allFlag) {
+                const char* funcName = "__pthread_mutex_unlock";
+                std::vector<BPatch_point*>* exitPoint =  findPoint(app, funcName, BPatch_entry);
+                if (!exitPoint || exitPoint->size() == 0) {
+                    fprintf(stderr, "No entry points for %s\n", funcName);
+                    exit(1);
+                }
+                // Create and insert instrumentation snippet 
+                if (!createAndInsertSnippet(app, exitPoint)) {
+                    fprintf(stderr, "createAndInsertSnippet in %s failed\n",funcName);
+                    exit(1);
+                }
             }
-            // Create and insert instrumentation snippet 2
-            if (!createAndInsertSnippet(app, exitPoint)) {
-                fprintf(stderr, "createAndInsertSnippet2 failed\n");
-                exit(1);
+            if(raceFlag || allFlag) {
+                //TODO:Instrument memory Accesses and Race condition algorithms
+                /*
+                const char* funcName = "";
+                std::vector<BPatch_point*>* exitPoint =  findPoint(app, funcName, BPatch_entry);
+                if (!exitPoint || exitPoint->size() == 0) {
+                    fprintf(stderr, "No entry points for %s\n", funcName);
+                    exit(1);
+                }
+                // Create and insert instrumentation snippet
+                if (!createAndInsertSnippet(app, exitPoint)) {
+                    fprintf(stderr, "createAndInsertSnippet in %s failed\n",funcName);
+                    exit(1);
+                }
+                */
             }
-            finishInstrumenting(app,"instrumentationName");
+
+            finishInstrumenting(app,"JustForFun");
         }
         catch (exception& e) {
             printf("Exception occurred: %s",e.what());
