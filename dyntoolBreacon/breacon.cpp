@@ -7,15 +7,15 @@
 #include "BPatch_flowGraph.h"
 #include "BPatch_module.h"
 #include "InstructionCategories.h"
-
 #include <string>
 #include <string.h>
 #include <set>
 #include <stdlib.h>
 #include <stdio.h>
+
 bool atomicityFlag=false; 
 bool raceFlag= false;
-bool allFlag= false;
+
 using namespace std;
 
 BPatch bpatch;
@@ -72,21 +72,23 @@ std::vector<BPatch_point*>* findPoint(BPatch_addressSpace* app, const char* name
 bool fuzzDriver(BPatch_addressSpace* app) {
 
     int err = 0;
-// Find the entry point for function InterestingProcedure
-    if(atomicityFlag || allFlag) {
+    // Find the entry point for function and instrument
+    if(atomicityFlag) {
         const char* funcName = "__pthread_mutex_unlock";
         std::vector<BPatch_point*>* exitPoint =  findPoint(app, funcName, BPatch_entry);
         if (!exitPoint || exitPoint->size() == 0) {
             fprintf(stderr, "No entry points for %s\n", funcName);
-            exit(1);
+            atomicityFlag = false
         }
         // Create and insert instrumentation snippet
-        if (!createAndInsertSnippet(app, exitPoint)) {
-            fprintf(stderr, "createAndInsertSnippet in %s failed\n",funcName);
-            exit(1);
+        if (atomicityFlag){
+            if (!createAndInsertSnippet(app, exitPoint)) {
+                fprintf(stderr, "createAndInsertSnippet in %s failed\n",funcName);
+                exit(1);
+            }
         }
     }
-    if(raceFlag || allFlag) {
+    if(raceFlag) {
 
         //TODO:Instrument memory Accesses and Race condition algorithms
         /*
@@ -187,7 +189,8 @@ int main(const int argc, const char** argv, const char** envp){
             raceFlag = true;
         }
         else if(!strcmp(argv[argCount],"-all")) {
-            allFlag = true;
+            atomicityFlag = true;
+            raceFlag = true;
         }
         else {
             printf("Invalid argument %s exiting...\n",argv[argCount]);
@@ -252,13 +255,13 @@ int main(const int argc, const char** argv, const char** envp){
                  }
              }*/
           
-            // Find the entry point for function InterestingProcedure
+            // Let the Randomization begin!
             err = fuzzDriver(app);
             if(!err) {
                 finishInstrumenting(app,"JustForFun");
             }
             else {
-                printf("Instrumenting gone wrong\n");
+                printf("Failed: Fuzz Driver has failed to his job\n");
             }
 
 
