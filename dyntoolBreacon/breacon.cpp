@@ -66,12 +66,53 @@ std::vector<BPatch_point*>* findPoint(BPatch_addressSpace* app, const char* name
     points = functions[0]->findPoint(loc);
     return points;
 }
+/*Instrument memory accesses for the function
+ * */
+
+bool instrumentMemoryAccess(BPatch_function *funcs,BPatch_addressSpace* app){
+    
+    //Find all read and write access
+    BPatch_Set<BPatch_opCode> readAccess, writeAccess;
+    readAccess.insert(BPatch_opLoad);
+    writeAccess.insert(BPatch_opStore);
+    const BPatch_Vector<BPatch_point *>* readPoints = funcs->findPoint(readAccess);
+    const BPatch_Vector<BPatch_point *>* writePoints = funcs->findPoint(writeAccess);
+    if(!readPoints || !writePoints){
+        printf("Hashasdasd\n");
+        exit(0);
+    }
+    vector<BPatch_snippet*> args;
+    BPatch_snippet *fmt = new BPatch_constExpr(rand() % 100);
+    args.push_back(fmt);
+    if(!app->insertSnippet(BPatch_funcCallExpr(*breaconDelay, args), *readPoints,BPatch_callBefore)){
+        fprintf(stderr, "insertSnippet failed for readPoints\n");
+        return false;
+    }
+    if(!app->insertSnippet(BPatch_funcCallExpr(*breaconDelay, args), *writePoints,BPatch_callBefore)){
+        fprintf(stderr, "insertSnippet failedfor writePoints\n");
+        return false;
+    }
+    printf("Instrumented\n");
+    return true;
+}
+
+    
+
+/*Instrument a particular function - for Race detection
+ */
+bool instrumentFunction(BPatch_function *iterFuncVector, char *name,BPatch_addressSpace* app){
+    if(!instrumentMemoryAccess(iterFuncVector,app)){
+        return false;
+    }
+    return true;  
+    //Keeping this space to do something else like instrumenting inside that function
+}
 
 
 /**
  * Fuzz Driver - This function finds call points and initiates instrumentation
  * */
-bool fuzzDriver(BPatch_addressSpace* app) {
+bool fuzzDriver(BPatch_addressSpace* app,BPatch_image *img) {
 
     int err = 0;
     // Find the entry point for function and instrument
@@ -90,23 +131,25 @@ bool fuzzDriver(BPatch_addressSpace* app) {
         
     }
     if(raceFlag) {
-        //TODO:Instrument memory Accesses and Race condition algorithms
-        /*
-        const char* funcName = "";
-        std::vector<BPatch_point*>* exitPoint =  findPoint(app, funcName, BPatch_entry);
-        if (!exitPoint || exitPoint->size() == 0) {
-            fprintf(stderr, "No entry points for %s\n", funcName);
-            exit(1);
+        //funcVector - Vector containing the functions in the program
+        const BPatch_Vector<BPatch_function*> *funcVector = img->getProcedures();
+        for (BPatch_Vector<BPatch_function*>::const_iterator iterFuncVector = funcVector->begin(); iterFuncVector != funcVector->end(); ++iterFuncVector) {
+            (*iterFuncVector)->getName(bufferFuncName,1023);
+            //Some functions we can comfortably ignore
+            if (!strncmp(bufferFuncName, "std::",5)) continue;
+            if (!strncmp(bufferFuncName, "_",1)) continue;
+            if (!strncmp(bufferFuncName, "new(", 4)) continue;
+            if (!strncmp(bufferFuncName, "call_", 5)) continue;
+            if (!strncmp(bufferFuncName, "global con", 10)) continue;
+            if (!strcmp(bufferFuncName, "frame_dummy")) continue;
+            if (!strcmp(bufferFuncName, "main")) continue;
+            if (!strcmp(bufferFuncName, "breaconDelay")) continue;
+            //Analyzing each function and instrumenting after them
+            printf("%s\n", bufferFuncName);
+            instrumentFunction(*iterFuncVector, bufferFuncName,app);
         }
-        // Create and insert instrumentation snippet
-        if (!createAndInsertSnippet(app, exitPoint)) {
-            fprintf(stderr, "createAndInsertSnippet in %s failed\n",funcName);
-            exit(1);
-        }
-        */
     }
     return err;
-    
 }
 
 
@@ -242,28 +285,8 @@ int main(const int argc, const char** argv, const char** envp){
             }
              findLibFunction(rtLibrary);
 
-            /*
-             //funcVector - Vector containing the functions in the program
-             const BPatch_Vector<BPatch_function*> *funcVector = img->getProcedures();
-             for (BPatch_Vector<BPatch_function*>::const_iterator iterFuncVector = funcVector->begin(); iterFuncVector != funcVector->end(); ++iterFuncVector) {
-                 (*iterFuncVector)->getName(bufferFuncName,1023);
-                 //Some functions we can comfortably ignore
-                 if (!strncmp(bufferFuncName, "std::",5)) continue;
-                 if (!strncmp(bufferFuncName, "_",1)) continue;
-                 if (!strncmp(bufferFuncName, "new(", 4)) continue;
-                 if (!strncmp(bufferFuncName, "call_", 5)) continue;
-                 if (!strncmp(bufferFuncName, "global con", 10)) continue;
-                 if (!strcmp(bufferFuncName, "frame_dummy")) continue;
-        
-                 //Analyzing each function for Pthread calls and instrumenting after them
-                 //printf("%s\n", bufferFuncName);
-                 if (strcmp(bufferFuncName, "__pthread_mutex_unlock")) {
-                    fuzzDriver(app, *iterFuncVector, bufferFuncName);
-                 }
-             }*/
-          
             // Let the Randomization begin!
-            err = fuzzDriver(app);
+            err = fuzzDriver(app, img);
             if(!err) {
                 finishInstrumenting(app,"JustForFun");
             }
