@@ -13,8 +13,9 @@
 #include <set>
 #include <stdlib.h>
 #include <stdio.h>
-
-
+bool atomicityFlag=false; 
+bool raceFlag= false;
+bool allFlag= false;
 using namespace std;
 
 BPatch bpatch;
@@ -28,7 +29,6 @@ char calledFuncName[1024];
 
 /* handles of run-time library functions */
 BPatch_function *breaconDelay;
-
 
 /* 
  * FindLibFunction - Find the Delay function in the Breacon Runtime library
@@ -45,22 +45,24 @@ void findLibFunction(BPatch_module *rtLibrary){
 
 // Find a point at which to insert instrumentation
 std::vector<BPatch_point*>* findPoint(BPatch_addressSpace* app, const char* name, BPatch_procedureLocation loc) {
- std::vector<BPatch_function*> functions;
- std::vector<BPatch_point*>* points;
- // Scan for functions named "name"
- BPatch_image* appImage = app->getImage();
- appImage->findFunction(name, functions);
-
- printf("Found Function %s\n",name);
- if (functions.size() == 0) {
- fprintf(stderr, "No function %s\n", name);
- return points;
- } else if (functions.size() > 1) {
- fprintf(stderr, "More than one %s; using the first one\n", name);
- }
- // Locate the relevant points
- points = functions[0]->findPoint(loc);
- return points;
+    std::vector<BPatch_function*> functions;
+    std::vector<BPatch_point*>* points;
+    // Scan for functions named "Name"
+    BPatch_image* appImage = app->getImage();
+    appImage->findFunction(name, functions);
+    
+    //printf("Found Function %s\n",name);
+    if (functions.size() == 0) {
+        fprintf(stderr, "No function %s\n", name);
+        return points;
+    }
+    else if (functions.size() > 1) {
+        fprintf(stderr, "More than one %s; using the first one\n", name);
+    }
+    
+    // Locate the relevant points
+    points = functions[0]->findPoint(loc);
+    return points;
 }
 
 
@@ -70,40 +72,7 @@ std::vector<BPatch_point*>* findPoint(BPatch_addressSpace* app, const char* name
 void fuzzDriver(BPatch_addressSpace* app, BPatch_function *func, char *funcName) {
 
 
-
-
-
-/*
-
-    //Get all call instructions in the Function
-    const BPatch_Vector<BPatch_point *>* callPoints = func->findPoint(BPatch_subroutine);
-
-   //Call site Enumeration and Display
-    for (BPatch_Vector<BPatch_point*>::const_iterator iter = callPoints->begin(); iter != callPoints->end(); ++iter){
-        BPatch_function* calledFuncs = (*iter)->getCalledFunction();
-        if (calledFuncs != NULL){
-            calledFuncs->getName(calledFuncName , 1023);
-            //printf("In function %s, %s is called\n", funcName, calledFuncName);
-            if (!strcmp(calledFuncName,"__pthread_mutex_unlock")) {
-                printf("In function %s, %s is called\n", funcName, calledFuncName);
-                vector<BPatch_snippet*> args;
-                BPatch_snippet *fmt = new BPatch_constExpr(rand()%100);
-                args.push_back(fmt);
-                app->insertSnippet(BPatch_funcCallExpr(*breaconDelay, args), **iter, BPatch_callAfter);
-            }
-         if (!strcmp(calledFuncName,"pthread_create")) {
-                printf("In function %s, %s is called\n", funcName, calledFuncName);
-                vector<BPatch_snippet*> args;
-                BPatch_snippet *fmt = new BPatch_constExpr(rand()%100);
-                args.push_back(fmt);
-                app->insertSnippet(BPatch_funcCallExpr(*breaconDelay, args), **iter, BPatch_callAfter);
-            }
-
-        }
-    }
-*/
 }
-
 
 
 /**
@@ -116,6 +85,7 @@ BPatch_addressSpace *startInstrumenting(accessType_t accessType, const char **ar
             handle = bpatch.processCreate(argv[1], argv+1,envp);
             break;
         case attach:
+            fprintf(stderr, "Attach not supported\n");
             //handle = bpatch.processAttach(name, pid);
             break;
         case open:
@@ -148,18 +118,20 @@ void finishInstrumenting(BPatch_addressSpace* app, const char* newName)
     }
 }
 
+
+/*Creates and Inserts Snippet at the point passed in the argument
+ * */
 bool createAndInsertSnippet(BPatch_addressSpace* app, std::vector<BPatch_point*>* points) {
 
-vector<BPatch_snippet*> args;
-BPatch_snippet *fmt = new BPatch_constExpr(rand()%100);
-args.push_back(fmt);
-if(!app->insertSnippet(BPatch_funcCallExpr(*breaconDelay, args), *points)){
-    fprintf(stderr, "insertSnippet failed\n");
-     return false;
+    vector<BPatch_snippet*> args;
+    BPatch_snippet *fmt = new BPatch_constExpr(rand()%100);
+    args.push_back(fmt);
+    if(!app->insertSnippet(BPatch_funcCallExpr(*breaconDelay, args), *points)){
+        fprintf(stderr, "insertSnippet failed\n");
+        return false;
+    }
+    return true;
 }
-return true;
-}
-
 
 
 /**
@@ -167,12 +139,31 @@ return true;
  * */
 
 int main(const int argc, const char** argv, const char** envp){   
-    if (argc <= 1) {
-        printf("Usage: %s <Pthread-Executable> (Press [CTRL-C] to Stop)\n", argv[0]);     
+    //Adding option support so that we only instrument what is asked by the user
+    int argCount;
+    if (argc > 5 || argc <=2) {
+        printf("Breacon - Randomizing the Thread Scheduler\nUsage: %s <Pthread-Executable> [Options]\nOptions:\n-a => Atomicity Violation based Instrumentation\n-r => Race Condition based Instrumentation\n-all => Full Instrumentation (If you like it slow)\nPress[CTRL-C] to stop\n", argv[0]);
         exit(0);
     }
+
+    for(argCount=2;argCount<argc;argCount++){
+        if(!strcmp(argv[argCount],"-a")) {
+            atomicityFlag = true;
+        }
+        else if(!strcmp(argv[argCount],"-r")) {
+            raceFlag = true;
+        }
+        else if(!strcmp(argv[argCount],"-all")) {
+            allFlag = true;
+        }
+        else {
+            printf("Invalid argument %s exiting...\n",argv[argCount]);
+            exit(0);
+        }
+    }
+
     /*Initializing a PRG for future RAND calls in the RT API
-     * The Numbers are passed to the library function for every invocation
+     * The Numbers are passed to the library function for every invocation of the breacon program
      */
     unsigned int seed;
     FILE *fp = fopen("/dev/urandom", "r");
@@ -208,15 +199,6 @@ int main(const int argc, const char** argv, const char** envp){
             }
              findLibFunction(rtLibrary);
 
-
-            /*
-             const BPatch_Vector<BPatch_module*> *funcVectorMod = img->getModules();
-             for (BPatch_Vector<BPatch_module*>::const_iterator iterFuncVector = funcVectorMod->begin(); iterFuncVector != funcVectorMod->end(); ++iterFuncVector) {
-                 (*iterFuncVector)->getName(bufferFuncName,1023);
-                
-                 printf("%s\n", bufferFuncName);
-             }
-            */
             /*
              //funcVector - Vector containing the functions in the program
              const BPatch_Vector<BPatch_function*> *funcVector = img->getProcedures();
@@ -237,26 +219,23 @@ int main(const int argc, const char** argv, const char** envp){
                  }
              }*/
           
-// Find the entry point for function InterestingProcedure
- const char* interestingFuncName = "__pthread_mutex_unlock";
- std::vector<BPatch_point*>* exitPoint =  findPoint(app, interestingFuncName, BPatch_entry);
- if (!exitPoint || exitPoint->size() == 0) {
- fprintf(stderr, "No entry points for %s\n", interestingFuncName);
-exit(1);
-}
-// Create and insert instrumentation snippet 2
-  if (!createAndInsertSnippet(app, exitPoint)) {
-   fprintf(stderr, "createAndInsertSnippet2 failed\n");
-    exit(1);
-     }
-
-  finishInstrumenting(app,"instrumentationName");
-         
-         
-         }
-        catch (exception& e) {
-           printf("Exception occurred: %s",e.what());
+            // Find the entry point for function InterestingProcedure
+            
+            const char* interestingFuncName = "__pthread_mutex_unlock";
+            std::vector<BPatch_point*>* exitPoint =  findPoint(app, interestingFuncName, BPatch_entry);
+            if (!exitPoint || exitPoint->size() == 0) {
+                fprintf(stderr, "No entry points for %s\n", interestingFuncName);
+                exit(1);
+            }
+            // Create and insert instrumentation snippet 2
+            if (!createAndInsertSnippet(app, exitPoint)) {
+                fprintf(stderr, "createAndInsertSnippet2 failed\n");
+                exit(1);
+            }
+            finishInstrumenting(app,"instrumentationName");
         }
-    
+        catch (exception& e) {
+            printf("Exception occurred: %s",e.what());
+        }
     return 0;
 }
