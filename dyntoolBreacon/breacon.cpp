@@ -32,7 +32,6 @@ BPatch_function *breaconDelay;
 
 bool createAndInsertSnippet(BPatch_addressSpace* app, std::vector<BPatch_point*>* points);
 
-
 /* 
  * FindLibFunction - Find the Delay function in the Breacon Runtime library
  * */
@@ -160,7 +159,7 @@ void finishInstrumenting(BPatch_addressSpace* app, const char* newName)
 bool createAndInsertSnippet(BPatch_addressSpace* app, std::vector<BPatch_point*>* points) {
 
     vector<BPatch_snippet*> args;
-    BPatch_snippet *fmt = new BPatch_constExpr(rand()%100);
+    BPatch_snippet *fmt = new BPatch_constExpr(rand() % 100);
     args.push_back(fmt);
     if(!app->insertSnippet(BPatch_funcCallExpr(*breaconDelay, args), *points)){
         fprintf(stderr, "insertSnippet failed\n");
@@ -177,6 +176,8 @@ bool createAndInsertSnippet(BPatch_addressSpace* app, std::vector<BPatch_point*>
 int main(const int argc, const char** argv, const char** envp){   
     //Adding option support so that we only instrument what is asked by the user
     int argCount;
+    //while loop iteration counter
+    int count = 0;
     int err = 0;
     if (argc > 5 || argc <=2) {
         printf("Breacon - Randomizing the Thread Scheduler\nUsage: %s <Pthread-Executable> [Options]\nOptions:\n-a => Atomicity Violation based Instrumentation\n-r => Race Condition based Instrumentation\n-all => Full Instrumentation (If you like it slow)\nPress[CTRL-C] to stop\n", argv[0]);
@@ -203,15 +204,19 @@ int main(const int argc, const char** argv, const char** envp){
     /*Initializing a PRG for future RAND calls in the RT API
      * The Numbers are passed to the library function for every invocation of the breacon program
      */
-    unsigned int seed;
+    unsigned int seed; 
     FILE *fp = fopen("/dev/urandom", "r");
     fread((unsigned int*)(&seed),sizeof(seed), 1, fp);
     fclose(fp);
-    printf("The seed is %u\n",seed);
+    printf("Initializing Breacon's intrumenter seed = %u\n",seed);
     srand(seed);
     
     /*We need to run forever...press CTRL-C to exit*/
-    
+    while(1) { 
+        count++;
+        printf("//*************************//");
+        printf("Starting iteration no %d",count);
+        printf("//************************//\n");
         /*Initializing the PRG with the runCount for easy reproducibility*/
         try {
             /*Creating and then attaching to the process. For debugging need to consider Binary Rewriting too*/
@@ -269,7 +274,8 @@ int main(const int argc, const char** argv, const char** envp){
 
         }
         catch (exception& e) {
-            printf("Exception occurred: %s",e.what());
+            printf("Exception occurred: %s\n",e.what());
         }
+    }
     return 0;
 }
