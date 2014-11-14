@@ -69,9 +69,42 @@ std::vector<BPatch_point*>* findPoint(BPatch_addressSpace* app, const char* name
 /**
  * Fuzz Driver - This function finds call points and initiates instrumentation
  * */
-void fuzzDriver(BPatch_addressSpace* app, BPatch_function *func, char *funcName) {
+bool fuzzDriver(BPatch_addressSpace* app) {
 
+    int err = 0;
+// Find the entry point for function InterestingProcedure
+    if(atomicityFlag || allFlag) {
+        const char* funcName = "__pthread_mutex_unlock";
+        std::vector<BPatch_point*>* exitPoint =  findPoint(app, funcName, BPatch_entry);
+        if (!exitPoint || exitPoint->size() == 0) {
+            fprintf(stderr, "No entry points for %s\n", funcName);
+            exit(1);
+        }
+        // Create and insert instrumentation snippet
+        if (!createAndInsertSnippet(app, exitPoint)) {
+            fprintf(stderr, "createAndInsertSnippet in %s failed\n",funcName);
+            exit(1);
+        }
+    }
+    if(raceFlag || allFlag) {
 
+        //TODO:Instrument memory Accesses and Race condition algorithms
+        /*
+        const char* funcName = "";
+        std::vector<BPatch_point*>* exitPoint =  findPoint(app, funcName, BPatch_entry);
+        if (!exitPoint || exitPoint->size() == 0) {
+            fprintf(stderr, "No entry points for %s\n", funcName);
+            exit(1);
+        }
+        // Create and insert instrumentation snippet
+        if (!createAndInsertSnippet(app, exitPoint)) {
+            fprintf(stderr, "createAndInsertSnippet in %s failed\n",funcName);
+            exit(1);
+        }
+        */
+    }
+    return err;
+    
 }
 
 
@@ -220,37 +253,15 @@ int main(const int argc, const char** argv, const char** envp){
              }*/
           
             // Find the entry point for function InterestingProcedure
-            if(atomicityFlag || allFlag) {
-                const char* funcName = "__pthread_mutex_unlock";
-                std::vector<BPatch_point*>* exitPoint =  findPoint(app, funcName, BPatch_entry);
-                if (!exitPoint || exitPoint->size() == 0) {
-                    fprintf(stderr, "No entry points for %s\n", funcName);
-                    exit(1);
-                }
-                // Create and insert instrumentation snippet 
-                if (!createAndInsertSnippet(app, exitPoint)) {
-                    fprintf(stderr, "createAndInsertSnippet in %s failed\n",funcName);
-                    exit(1);
-                }
+            err = fuzzDriver(app);
+            if(!err) {
+                finishInstrumenting(app,"JustForFun");
             }
-            if(raceFlag || allFlag) {
-                //TODO:Instrument memory Accesses and Race condition algorithms
-                /*
-                const char* funcName = "";
-                std::vector<BPatch_point*>* exitPoint =  findPoint(app, funcName, BPatch_entry);
-                if (!exitPoint || exitPoint->size() == 0) {
-                    fprintf(stderr, "No entry points for %s\n", funcName);
-                    exit(1);
-                }
-                // Create and insert instrumentation snippet
-                if (!createAndInsertSnippet(app, exitPoint)) {
-                    fprintf(stderr, "createAndInsertSnippet in %s failed\n",funcName);
-                    exit(1);
-                }
-                */
+            else {
+                printf("Instrumenting gone wrong\n");
             }
 
-            finishInstrumenting(app,"JustForFun");
+
         }
         catch (exception& e) {
             printf("Exception occurred: %s",e.what());
