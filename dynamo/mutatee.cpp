@@ -20,7 +20,8 @@ static bool blacklisted_module(char* name) {
     if (module.find("libdyninst") == 0 | module.find("libdynamo") == 0 |
         module.find("crtstuff") == 0   | module.find("libstdc++") == 0 |
         module.find("libm") == 0       | module.find("libgcc") == 0 |
-        module.find("libc") == 0       | module.find("libdl") == 0) {
+        module.find("libc") == 0       | module.find("libdl") == 0 |
+        module.find("libpthread") == 0) {
             return true;    
     }
     return false;
@@ -175,7 +176,7 @@ bool mutatee::find_delay_function(const std::string& library_name,
     
     // set delay function.
     data->dely_function = functions.front();
-    log::info() << "foudn delay function `" << function_name 
+    log::info() << "found delay function `" << function_name 
                 << "'." << std::endl;
     
     return true;
@@ -213,7 +214,7 @@ bool mutatee::instrument_memory(const parameters& params) {
         if (blacklisted_module((char*)&mod_name)) { continue; }
         
         // retrieve functions in module.
-        log::info() << " instrumenting module `" << (char*)mod_name 
+        log::info() << "instrumenting module `" << (char*)mod_name 
                     << "' for memory accesses." <<std::endl;
         functions = mod->getProcedures();
         

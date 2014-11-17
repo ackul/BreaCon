@@ -24,7 +24,7 @@ mutatee.o: mutatee.h mutatee.cpp log.h
 parse-args.o: parse-args.h parse-args.cpp log.h
 	$(CC) $(CFLAGS) -c $*.cpp
 
-printer.o: printer.h printer.cpp
+printer.o: printer.h printer.cpp version.h
 	$(CC) $(CFLAGS) -c $*.cpp
 
 random.o: random.h random.cpp
