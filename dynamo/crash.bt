@@ -1,0 +1,36 @@
+Error: idToUse 247 and state->val 246
+dynamo: /builddir/build/BUILD/dyninst-8.2.0/dyninst/dyninstAPI/src/Relocation/Springboard.C:472: void Dyninst::Relocation::InstalledSpringboards::registerBranch(Dyninst::Address, Dyninst::Address, const Destinations&, bool, func_instance*, Dyninst::Relocation::Priority): Assertion `idToUse == state->val' failed.
+
+
+#0  0x0000003835235877 in raise () from /lib64/libc.so.6
+#1  0x0000003835236f68 in abort () from /lib64/libc.so.6
+#2  0x000000383522e7d6 in __assert_fail_base () from /lib64/libc.so.6
+#3  0x000000383522e882 in __assert_fail () from /lib64/libc.so.6
+#4  0x00007ffff7d1c184 in Dyninst::Relocation::InstalledSpringboards::registerBranch(unsigned long, unsigned long, std::map<func_instance*, unsigned long, std::less<func_instance*>, std::allocator<std::pair<func_instance* const, unsigned long> > > const&, bool, func_instance*, Dyninst::Relocation::Priority) ()
+   from /usr/lib64/dyninst/libdyninstAPI.so.8.2
+#5  0x00007ffff7d1cd43 in Dyninst::Relocation::SpringboardBuilder::generateSpringboard(std::list<codeGen, std::allocator<codeGen> >&, Dyninst::Relocation::SpringboardReq const&, Dyninst::Relocation::SpringboardMap&) ()
+   from /usr/lib64/dyninst/libdyninstAPI.so.8.2
+#6  0x00007ffff7d1cf34 in Dyninst::Relocation::SpringboardBuilder::generateInt(std::list<codeGen, std::allocator<codeGen> >&, Dyninst::Relocation::SpringboardMap&, Dyninst::Relocation::Priority) ()
+   from /usr/lib64/dyninst/libdyninstAPI.so.8.2
+#7  0x00007ffff7d1d0e7 in Dyninst::Relocation::SpringboardBuilder::generate(std::list<codeGen, std::allocator<codeGen> >&, Dyninst::Relocation::SpringboardMap&) () from /usr/lib64/dyninst/libdyninstAPI.so.8.2
+#8  0x00007ffff7cacfde in AddressSpace::patchCode(boost::shared_ptr<Dyninst::Relocation::CodeMover>, boost::shared_ptr<Dyninst::Relocation::SpringboardBuilder>) () from /usr/lib64/dyninst/libdyninstAPI.so.8.2
+#9  0x00007ffff7cb0402 in AddressSpace::relocateInt(std::_Rb_tree_const_iterator<func_instance*>, std::_Rb_tree_const_iterator<func_instance*>, unsigned long)
+    () from /usr/lib64/dyninst/libdyninstAPI.so.8.2
+#10 0x00007ffff7cb0ca5 in AddressSpace::relocate() ()
+   from /usr/lib64/dyninst/libdyninstAPI.so.8.2
+#11 0x00007ffff7d3cd68 in Dyninst::PatchAPI::DynInstrumenter::run() ()
+   from /usr/lib64/dyninst/libdyninstAPI.so.8.2
+#12 0x00007ffff6c42a00 in Dyninst::PatchAPI::Patcher::run() ()
+   from /usr/lib64/dyninst/libpatchAPI.so.8.2
+#13 0x00007ffff6c4229a in Dyninst::PatchAPI::Command::commit() ()
+   from /usr/lib64/dyninst/libpatchAPI.so.8.2
+#14 0x00007ffff7c5c97d in BPatch_process::finalizeInsertionSet(bool, bool*) ()
+   from /usr/lib64/dyninst/libdyninstAPI.so.8.2
+#15 0x00007ffff7c7d54d in BPatch_addressSpace::insertSnippet(BPatch_snippet const&, std::vector<BPatch_point*, std::allocator<BPatch_point*> > const&, BPatch_callWhen, BPatch_snippetOrder) () from /usr/lib64/dyninst/libdyninstAPI.so.8.2
+#16 0x0000000000404f13 in mutatee::instrument_memory (this=0x7fffffffdf10, 
+    params=...) at mutatee.cpp:246
+#17 0x00000000004082cd in trial_run::trial_run (this=0x7fffffffdf2b, id=0, 
+    prog=..., mut_params=..., run_params=...) at trial-run.cpp:50
+#18 0x0000000000403049 in main (argc=9, argv=0x7fffffffe028, 
+    envp=0x7fffffffe078) at dynamo.cpp:51
+
