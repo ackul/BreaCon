@@ -9,8 +9,17 @@
 #include <BPatch_point.h>
 #include <BPatch_process.h>
 
+/* declarations for callback functions. */
+static void callback_create(BPatch_process*, BPatch_thread*);
+static void callback_destroy(BPatch_process*, BPatch_thread*);
+static void callback_exit(BPatch_thread*, BPatch_exitType);
+static void callback_signals(BPatch_point*, long, std::vector<Dyninst::Address>*);
+
 // global variable to represent dyninst library. 
 static BPatch bpatch;
+
+/* global variable to mark if BPatch has been initialized. */
+static bool bpatch_initialized = false;
 
 /* returns true if the passed name is a blacklisted module. */
 static bool blacklisted_module(char* name) {
@@ -27,6 +36,99 @@ static bool blacklisted_module(char* name) {
     return false;
 }
 
+/* initializes the BPatch / Dyninst library. */
+static bool bpatch_initializer() {
+    static std::set<long> signals;
+    bool success = true;
+    
+    
+    // enable trampoline recursion to improve performance. 
+    bpatch.setTrampRecursive(true);
+    
+    // disable parsing debugging symbols to improve peformance.
+    bpatch.setDebugParsing(false);
+    log::info() << "enabled optimized backend settings." << std::endl;
+    
+    // set error handler. this prevents errors from being printed by dyninst.
+    // TODO
+    
+    // set signal callback.
+    // build set to catch first 36 signals.
+    for (int i = 0; i < 36; ++i) {
+        signals.insert(i);
+    }
+    
+    // set the callback and log.
+    if (bpatch.registerSignalHandlerCallback(callback_signals, signals)) {
+        log::info() << "registered signal callback for signals [0, 35]." << std::endl;
+    } else {
+        log::debug() << "could not register signal callback." << std::endl;
+        success = false;
+    }
+    
+    // set the thread create and destroy callbacks.
+    if (bpatch.registerThreadEventCallback(BPatch_threadCreateEvent, callback_create)) {
+        log::info() << "registered thread creation callback." << std::endl;
+    } else {
+        log::debug() << "could not register thread creation callback." << std::endl;
+        success = false;
+    }
+    if (bpatch.registerThreadEventCallback(BPatch_threadDestroyEvent, callback_destroy)) {
+        log::info() << "registered thread destruction callback." << std::endl;
+    } else {
+        log::debug() << "could not register thread destruction callback." << std::endl;
+        success = false;
+    }
+    
+    // fork and exec callbacks.
+    // TODO
+    
+    // set the exit callback.
+    bpatch.registerExitCallback(callback_exit);
+    if (bpatch.registerExitCallback(callback_exit) == callback_exit) {
+        log::info() << "registered process exit callback." << std::endl;
+    } else {
+        log::debug() << "could not register rpocess exit callback." << std::endl;
+        success = false;
+    }
+    
+    bpatch_initialized = true;
+    return success;
+}
+
+static void callback_create(BPatch_process* proc, BPatch_thread* thread) {
+    log::info() << "process [" << proc->getPid() << "] created new thread ["
+                << thread->getLWP() << "]." << std::endl;
+}
+
+static void callback_destroy(BPatch_process* proc, BPatch_thread* thread) {
+    log::info() << "process [" << proc->getPid() << "] destroyed thread ["
+                << thread->getLWP() << "]." << std::endl;
+}
+
+static void callback_exit(BPatch_thread* thread, BPatch_exitType type) {
+    switch (type) {
+        case BPatch_exitType::ExitedNormally:
+            log::info() << "process [" << thread->getProcess()->getPid() << ":"
+                        << thread->getLWP() << "] is exiting normally." 
+                        << std::endl;
+        break;
+        case BPatch_exitType::ExitedViaSignal:
+            log::info() << "process [" << thread->getProcess()->getPid() << ":"
+                        << thread->getLWP() << "] is exiting by signal." 
+                        << std::endl;
+        break;
+        default:
+            log::debug() << "process [" << thread->getProcess()->getPid() << ":"
+                         << thread->getLWP() << "] is exiting without exit." 
+                         << std::endl;
+    }
+}
+
+static void callback_signals(BPatch_point* at, long signal, std::vector<Dyninst::Address>* handlers) {
+    log::info() << "current process received signal " << signal << "." << std::endl;
+}
+
 /* structure to hold mutatee data and hide implementation from other files. */
 struct mutatee::mdata {
     const char** argv;
@@ -35,6 +137,7 @@ struct mutatee::mdata {
     BPatch_image*        proc_image;
     BPatch_function*     dely_function;
     BPatch_snippet*      dely_snippet;
+    int pid;
     
     /* creates the delay runtime snippet and assigns it to dely_snippet. */
     void create_delay_snippet(const parameters& params) {
@@ -54,7 +157,8 @@ struct mutatee::mdata {
     }
 };
 
-mutatee::mutatee(char** argv, char** envp) {
+mutatee::mutatee(char** argv, char** envp) {    
+    // initialize data.
     data = new mdata;
     data->argv = (const char**)argv;
     data->envp = (const char**)envp;
@@ -62,9 +166,14 @@ mutatee::mutatee(char** argv, char** envp) {
     data->proc_image = nullptr;
     data->dely_function = nullptr;
     data->dely_snippet = nullptr;
+    
+    // initialize BPatch if necessary.
+    if (!bpatch_initialized) { bpatch_initializer(); }
 }
     
 bool mutatee::create_process(int in, int out, int err) {
+    int pid;
+    
     // check if a process already exists.
     if (data->addr_space != nullptr) {
         log::debug() << "creating process over existing process." << std::endl;
@@ -77,20 +186,24 @@ bool mutatee::create_process(int in, int out, int err) {
     
     // check we succeeded.
     if (data->addr_space == nullptr) {
-        log::debug() << "could not create process `" 
+        log::debug() << "could not create process for `" 
                      << data->argv[0] << "'." << std::endl;
         return false;
     }
     
+    // get pid.
+    pid = dynamic_cast<BPatch_process*>(data->addr_space)->getPid();
+    
     // set image.
     data->proc_image = data->addr_space->getImage();
-    log::info() << "created new process `" << data->argv[0] << "'." << std::endl;
+    log::info() << "created new process [" << pid << "]." << std::endl;
     
     return true;
 }
 
 bool mutatee::destroy_process() {
     BPatch_process* proc;
+    int pid;
     
     // check that a process exists.
     if (data->addr_space == nullptr) {
@@ -100,6 +213,7 @@ bool mutatee::destroy_process() {
     
     // get process.
     proc = dynamic_cast<BPatch_process*>(data->addr_space);
+    pid = proc->getPid();
     proc->terminateExecution();
     
     // clear variables. TODO: properly destroy these.
@@ -108,12 +222,13 @@ bool mutatee::destroy_process() {
     data->dely_function = nullptr;
     data->dely_snippet = nullptr;
     
-    log::info() << "destroyed process `" << data->argv[0] << "'." << std::endl;
+    log::info() << "destroyed process [" << pid << "]." << std::endl;
 }
 
 int mutatee::execute() {
     BPatch_process* proc;
-    int status;
+    int status = 50512;
+    int pid;
     
     // check that a process exists.
     if (data->addr_space == nullptr) {
@@ -123,23 +238,38 @@ int mutatee::execute() {
     
     // get process.
     proc = dynamic_cast<BPatch_process*>(data->addr_space);
+    pid = proc->getPid();
     
     // wait while execution continues.
     while (!proc->isTerminated()) {
-        proc->continueExecution();
-        log::info() << "executing process." << std::endl;
+        
+        if (proc->isStopped()) {
+            log::info() << "process [" << pid << "] stopped by signal " 
+                        << proc->stopSignal() << " " << proc->isStopped() << "." << std::endl;
+                        
+            proc->continueExecution();
+            log::info() << "executing process [" << pid << "]." << std::endl;
+        } else {
+            
+        }
+
+        
         bpatch.waitForStatusChange();
-        log::info() << "status change in process." << std::endl;
+        
     }
-    log::info() << "process has finished execution." << std::endl;
+    log::info() << "process [" << pid << "] has finished execution." << std::endl;
     
     // save exit status and destroy process. 
-    status = proc->getExitCode();
+    if (proc->terminationStatus() == BPatch_exitType::ExitedNormally) {
+        status = proc->getExitCode();
+    } else {
+        status = EXEC_FAIL;
+        log::alert() << "process [" << pid << "] exited due to signal " 
+                     << proc->getExitSignal() << "." << std::endl;
+    }
     destroy_process();
     
-    if (status == EXEC_FAIL) {
-        log::debug() << "exit status is EXEC_FAIL." << std::endl;
-    }
+    
     return status;
 }
 

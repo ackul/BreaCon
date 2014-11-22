@@ -17,6 +17,9 @@ class random {
     template <int A, int B> static int uniform_int() {
         return uniform_int(A, B);
     }
+    
+    /* a uniform 1 - 100 int generator. */
+    static int uniform_probability();
 };
 
 #endif

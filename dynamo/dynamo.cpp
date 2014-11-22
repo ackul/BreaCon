@@ -31,7 +31,7 @@ int main(int argc, char** argv, char** envp) {
         .delay_upper_bound = args.delay_upper(),
         .delay_probability = args.delay_probability(),
         .instrument_probability = args.instrument_probability(),
-        .get_random_int = random::uniform_int<1, 100>
+        .get_random_int = random::uniform_probability
     };
     
     trial_run::parameters run_params {

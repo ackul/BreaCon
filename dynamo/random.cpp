@@ -19,4 +19,10 @@ int random::uniform_int(int min, int max) {
     return dist(gen);
 }
 
-
+int random::uniform_probability() {
+    static unsigned long seed = def_clock::now().time_since_epoch().count();
+    static std::default_random_engine gen(seed);
+    static std::uniform_int_distribution<int> dist(1, 100);
+    
+    return dist(gen);
+}
