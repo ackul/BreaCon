@@ -9,6 +9,8 @@
 #include <BPatch_point.h>
 #include <BPatch_process.h>
 
+#define nullptr 0
+
 /* declarations for callback functions. */
 static void callback_create(BPatch_process*, BPatch_thread*);
 static void callback_destroy(BPatch_process*, BPatch_thread*);
@@ -314,8 +316,8 @@ bool mutatee::find_delay_function(const std::string& library_name,
 
 bool mutatee::instrument_memory(const parameters& params) {
     char mod_name[1024];
-    const std::vector<BPatch_function*>* functions = nullptr;
-    const std::vector<BPatch_module*>* modules = nullptr;
+    std::vector<BPatch_function*>* functions = nullptr;
+    std::vector<BPatch_module*>* modules = nullptr;
     std::vector<BPatch_point*>* points = nullptr;
     BPatchSnippetHandle* handle = nullptr;
     std::set<BPatch_opCode> access_type;
@@ -335,7 +337,12 @@ bool mutatee::instrument_memory(const parameters& params) {
     modules = data->proc_image->getModules();
     
     // iterate over modules.
-    for (BPatch_module* mod : *modules) {
+    std::vector<BPatch_module*>::iterator mb, me;
+    mb = modules->begin();
+    me = modules->end();
+    while (mb != me) {
+        BPatch_module* mod = *mb;
+    //for (BPatch_module* mod : *modules) {
         // get name.
         mod->getName((char*)&mod_name, 1023);
         
@@ -355,7 +362,12 @@ bool mutatee::instrument_memory(const parameters& params) {
             continue;
         }
         
-        for (BPatch_function* function : *functions) {
+        std::vector<BPatch_function*>::iterator fb, fe;
+        fb = functions->begin();
+        fe = functions->end();
+        while (fb != fe) {
+        //for (BPatch_function* function : *functions) {
+            BPatch_function* function = *fb;
             // get function name. 
             name = function->getName();
 
@@ -382,7 +394,9 @@ bool mutatee::instrument_memory(const parameters& params) {
             // clear for loop.
             points = nullptr;
             handle = nullptr;
+            ++fb;
         }
+        ++mb;
     }
     
     return success;
@@ -406,7 +420,12 @@ bool mutatee::instrument_mutex(const parameters& params) {
     }
     
     // loop through functions to instrument.
-    for (const std::string& name : mutex_names) {
+    std::vector<std::string>::iterator sb, se;
+    sb = mutex_names.begin();
+    se = mutex_names.end();
+    while (sb != se) {
+    //for (const std::string& name : mutex_names) {
+        const std::string& name = *sb;
         // check if we are going to instrument this function.
         if (params.get_random_int() > params.instrument_probability) {
             continue;
@@ -455,6 +474,7 @@ bool mutatee::instrument_mutex(const parameters& params) {
         functions.clear();
         mutex_exit_points = nullptr;
         insert_handle = nullptr;
+        ++sb;
     }
     
     return success;
