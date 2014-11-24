@@ -31,163 +31,55 @@
         <h3>
 <a id="problem-statement" class="anchor" href="#problem-statement" aria-hidden="true"><span class="octicon octicon-link"></span></a>Problem Statement</h3>
 
-<p>Modern web and distributed applications heavily rely on concurrent execution. As usage of multi-core </p>
-
-<p>processors gain momentum, client side programs are also switching to multiple threads in their code. However, even </p>
-
-<p>for skilled developers, creating multithreaded software is a challenge. Concurrency issues such as deadlocks and </p>
-
-<p>data races are often tough to fix without being able to reproduce them. In a multi-threaded concurrent program, the </p>
-
-<p>number of possible interleavings is enormous - exponential to the length of the program and the number of threads </p>
-
-<p>.These interleavings depend on the context switches that happened during the run which are very difficult to </p>
-
-<p>predict; thus, the probability of reproducing a concurrent failure is extremely low. Stress testing methods such as </p>
-
-<p>repeatedly executing the program for different payloads with the hope of finding a bug is not efficient because tests </p>
-
-<p>that are independent of I/O latency and network usage will usually lead to the same interleaving. We believe that an </p>
+<p>Modern web and distributed applications heavily rely on concurrent execution. As usage of multi-core processors gain momentum, client side programs are also switching to multiple threads in their code. However, even for skilled developers, creating multithreaded software is a challenge. Concurrency issues such as deadlocks and data races are often tough to fix without being able to reproduce them. In a multi-threaded concurrent program, the number of possible interleavings is enormous - exponential to the length of the program and the number of threads .These interleavings depend on the context switches that happened during the run which are very difficult to predict; thus, the probability of reproducing a concurrent failure is extremely low. Stress testing methods such as repeatedly executing the program for different payloads with the hope of finding a bug is not efficient because tests that are independent of I/O latency and network usage will usually lead to the same interleaving. We believe that an </p>
 
 <h2>
 <a id="effective-concurrency-fuzzer-should-have-the-following-characteristics" class="anchor" href="#effective-concurrency-fuzzer-should-have-the-following-characteristics" aria-hidden="true"><span class="octicon octicon-link"></span></a>effective concurrency fuzzer should have the following characteristics:</h2>
 
 <ol>
-<li><p>Accuracy - Find valid bugs with particular emphasis on minimizing false positives.</p></li>
-<li><p>Replay Support – A replay algorithm to support reproducibility.</p></li>
-<li><p>Coverage – Test the entire problem space and prove the absence of faults.</p></li>
-<li><p>Extensibility - Plugin based architecture to support enhancements.</p></li>
+<li>Accuracy - Find valid bugs with particular emphasis on minimizing false positives.</li>
+<li>Replay Support – A replay algorithm to support reproducibility.</li>
+<li>Coverage – Test the entire problem space and prove the absence of faults.</li>
+<li>Extensibility - Plugin based architecture to support enhancements.</li>
 </ol>
 
-<p>We did a study of few existing concurrency testing techniques [2] [3] [4] [5] and found that none of them </p>
-
-<p>were calibrated to support the aforementioned characteristics. As part of the first phase of our research we want to </p>
-
-<p>develop a fuzzer that is capable of finding concurrency bugs with high probability and tries to achieve a balance </p>
-
-<p>between the first three characteristics listed above. If time permits, for the second phase we intend to develop an </p>
-
-<p>extensible framework for the tool to support customizations.  </p>
+<p>We did a study of few existing concurrency testing techniques [2] [3] [4] [5] and found that none of them were calibrated to support the aforementioned characteristics. As part of the first phase of our research we want to develop a fuzzer that is capable of finding concurrency bugs with high probability and tries to achieve a balance between the first three characteristics listed above. If time permits, for the second phase we intend to develop an extensible framework for the tool to support customizations.  </p>
 
 <h3>
 <a id="our-idea" class="anchor" href="#our-idea" aria-hidden="true"><span class="octicon octicon-link"></span></a>Our Idea</h3>
 
-<p>We plan to combine different techniques to create a new method of concurrency bug detection. Fuzz testing </p>
+<p>We plan to combine different techniques to create a new method of concurrency bug detection. Fuzz testing has proven itself to be a powerful means of detecting bugs. This type of testing provides an application with random input and records the application’s response. Hanging and crashing signify that the application has failed the test. We will build upon these ideas by randomly scheduling threads to uncover concurrency bugs. However, these bugs often occur infrequently, and we can reduce the required time to find bugs by combining the random scheduling with heuristics. Common concurrency bugs including data races and deadlocks are normally caused by the improper use of synchronization primitives or the lack thereof. Without these primitives, sequences of instructions may be executed in any order. Synchronization reduces the number of possible sequences, and when properly used, eliminates all of the error-causing sequences. This knowledge may be paired with fuzz testing to create random sequences that are most likely to result in exhibiting bugs if they exist.</p>
 
-<p>has proven itself to be a powerful means of detecting bugs. This type of testing provides an application with random </p>
+<p>Our approach will scan the binaries of its target applications to find critical points for concurrency bugs.These points include obtaining and releasing locks, as well as, accessing shared memory. If these points may be executed in any order without changing the output, then there are no concurrency bugs. Our approach also involves adding to the fuzz testing framework to check the output of programs in addition to checking that they do not crash or hang. We selected this approach, because it allows for our tool to learn about applications without requiring source code or developer intervention.</p>
 
-<p>input and records the application’s response. Hanging and crashing signify that the application has failed the test. We </p>
-
-<p>will build upon these ideas by randomly scheduling threads to uncover concurrency bugs. However, these bugs often </p>
-
-<p>occur infrequently, and we can reduce the required time to find bugs by combining the random scheduling with </p>
-
-<p>heuristics. Common concurrency bugs including data races and deadlocks are normally caused by the improper use of </p>
-
-<p>synchronization primitives or the lack thereof. Without these primitives, sequences of instructions may be executed </p>
-
-<p>in any order. Synchronization reduces the number of possible sequences, and when properly used, eliminates all of </p>
-
-<p>the error-causing sequences. This knowledge may be paired with fuzz testing to create random sequences that are </p>
-
-<p>most likely to result in exhibiting bugs if they exist.</p>
-
-<p>Our approach will scan the binaries of its target applications to find critical points for concurrency bugs. </p>
-
-<p>These points include obtaining and releasing locks, as well as, accessing shared memory. If these points may be </p>
-
-<p>executed in any order without changing the output, then there are no concurrency bugs. Our approach also involves </p>
-
-<p>adding to the fuzz testing framework to check the output of programs in addition to checking that they do not crash </p>
-
-<p>or hang. We selected this approach, because it allows for our tool to learn about applications without requiring </p>
-
-<p>source code or developer intervention.</p>
-
-<p>We plan to utilize software debugger’s capabilities of stopping program execution to place stalls in threads. </p>
-
-<p>By inserting breakpoints throughout the code, we can stop and start threads in such a way that allows us to control </p>
-
-<p>the sequencing of instructions. Programs will run multiple times in the debugger with the breakpoints set in different </p>
-
-<p>places to test different sequences. If one sequence fails, our tool will record the results and the breakpoints used. </p>
-
-<p>This allows the sequence to be recreated and the programmer to understand what went wrong. The tool will </p>
-
-<p>automate running tests to further simplify the task of finding bugs.</p>
+<p>We plan to utilize software debugger’s capabilities of stopping program execution to place stalls in threads. By inserting breakpoints throughout the code, we can stop and start threads in such a way that allows us to control the sequencing of instructions. Programs will run multiple times in the debugger with the breakpoints set in different places to test different sequences. If one sequence fails, our tool will record the results and the breakpoints used. This allows the sequence to be recreated and the programmer to understand what went wrong. The tool will automate running tests to further simplify the task of finding bugs.</p>
 
 <h3>
 <a id="implementation-plan" class="anchor" href="#implementation-plan" aria-hidden="true"><span class="octicon octicon-link"></span></a>Implementation Plan</h3>
 
-<p>We are currently scheduling our project to be completed in eight full weeks after our initial preparation </p>
+<p>We are currently scheduling our project to be completed in eight full weeks after our initial preparation week. This week, week zero, is devoted to finding and reading related research and gaining a high-level insight into debuggers and program analysis. After this week, we will be able to plan the details of our testing tool and begin our implementation. 
+Weeks one and two (12. October - 25. October) are proposed for developing the program analysis portion of the tool. We will build an application that can load an executable binary and locate the critical points for concurrency. These points will be stored in a list with their accompanying type. We plan to look into resources regarding compiler construction and dynamic instrumentation to design and develop this portion of the tool.
+Weeks three and four (26. October - 8. November) will be used for integrating the debugger into our tool. We will also build our central testing algorithm in this stage. After completing program analysis, the tool will fork a new process and run the debugger. Through inter-process communication, the parent process will operate the debugger by instructing it to run the binary with the appropriate breakpoints. The tool will time the execution of the debugger and monitor the output of the application being tested.</p>
 
-<p>week. This week, week zero, is devoted to finding and reading related research and gaining a high-level insight into </p>
+<p>Week five and the first half of week six (9. November - 19. November) will be our testing phase. We will run our tool on a variety of concurrent applications, some of which will have known concurrency bugs. If our tool functions properly, it should find the known bugs. We hope to discover some unknown concurrency bugs as well.</p>
 
-<p>debuggers and program analysis. After this week, we will be able to plan the details of our testing tool and begin our </p>
+<p>The second half of week six and week seven (20. November - 29. November) will be used for performing our analysis of our testing and the tool in general. During this time we will write our final report on the project. </p>
 
-<p>implementation. </p>
-
-<p>Weeks one and two (12. October - 25. October) are proposed for developing the program analysis portion </p>
-
-<p>of the tool. We will build an application that can load an executable binary and locate the critical points for </p>
-
-<p>concurrency. These points will be stored in a list with their accompanying type. We plan to look into resources </p>
-
-<p>regarding compiler construction and dynamic instrumentation to design and develop this portion of the tool.</p>
-
-<p>Weeks three and four (26. October - 8. November) will be used for integrating the debugger into our tool. </p>
-
-<p>We will also build our central testing algorithm in this stage. After completing program analysis, the tool will fork a </p>
-
-<p>new process and run the debugger. Through inter-process communication, the parent process will operate the </p>
-
-<p>debugger by instructing it to run the binary with the appropriate breakpoints. The tool will time the execution of the </p>
-
-<p>debugger and monitor the output of the application being tested.</p>
-
-<p>Week five and the first half of week six (9. November - 19. November) will be our testing phase. We will </p>
-
-<p>run our tool on a variety of concurrent applications, some of which will have known concurrency bugs. If our tool </p>
-
-<p>functions properly, it should find the known bugs. We hope to discover some unknown concurrency bugs as well.</p>
-
-<p>The second half of week six and week seven (20. November - 29. November) will be used for performing </p>
-
-<p>our analysis of our testing and the tool in general. During this time we will write our final report on the project. </p>
-
-<p>Week eight is slack time, which will be reserved in the case of exceptional circumstances or unforeseen delays. We </p>
-
-<p>will finish the project by 28. November.</p>
+<p>Week eight is slack time, which will be reserved in the case of exceptional circumstances or unforeseen delays. We will finish the project by 28. November.</p>
 
 <h3>
 <a id="evaluation-criteria" class="anchor" href="#evaluation-criteria" aria-hidden="true"><span class="octicon octicon-link"></span></a>Evaluation Criteria</h3>
 
-<p>The concurrency bug detection algorithm and replay algorithm will form the core of our tool. The efficacy </p>
-
-<p>of heuristics and models applied in the algorithm implementation would decide if our concurrency failure detection </p>
-
-<p>technique performs better than existing testing approaches. During the testing phase, we plan to run our fuzzer on </p>
-
-<p>variety of multi-threaded applications. It is important that the fuzzer provides code coverage guarantee, discovers </p>
-
-<p>valid bugs and reduces the likelihood of false positives.</p>
+<p>The concurrency bug detection algorithm and replay algorithm will form the core of our tool. The efficacy of heuristics and models applied in the algorithm implementation would decide if our concurrency failure detection technique performs better than existing testing approaches. During the testing phase, we plan to run our fuzzer on variety of multi-threaded applications. It is important that the fuzzer provides code coverage guarantee, discovers valid bugs and reduces the likelihood of false positives.</p>
 
 <h3>
 <a id="references" class="anchor" href="#references" aria-hidden="true"><span class="octicon octicon-link"></span></a>References</h3>
 
-<p>[1] O. Edelstein, E. Farchi, Y. Nir, G. Ratsaby, S. Ur, “Multithreaded Java program test generation”,pp1,  2002.</p>
-
-<p>[2] Sebastian Burckhardt, Pravesh Kothari, Madanlal Musuvathi “A Randomized Scheduler with Probabilistic   </p>
-
-<p>Guarantees of Finding Bugs”, March. 2010.</p>
-
-<p>[3] Evgeny Vainer, Amiram Yehudai, “Controlling Concurrent Behavior while Testing Multithreaded Software”,  </p>
-
-<p>2013.
-[4] Pallavi Joshi, Mayur Naik, Chang-Seo Park, and Koushik Sen, “CalFuzzer: An Extensible Active Testing
-Framework for Concurrent Programs”, 2009
-[5] Qingzhou Luo, Sai Zhang, Jianjun Zhao, and Min Hu, “A Lightweight and Portable Approach to Making
-Concurrent Failures Reproducible”, 2010</p>
+<p>[1] O. Edelstein, E. Farchi, Y. Nir, G. Ratsaby, S. Ur, “Multithreaded Java program test generation”,pp1,2002.
+[2] Sebastian Burckhardt, Pravesh Kothari, Madanlal Musuvathi “A Randomized Scheduler with Probabilistic Guarantees of Finding Bugs”, March. 2010.
+[3] Evgeny Vainer, Amiram Yehudai, “Controlling Concurrent Behavior while Testing Multithreaded Software”,2013.
+[4] Pallavi Joshi, Mayur Naik, Chang-Seo Park, and Koushik Sen, “CalFuzzer: An Extensible Active Testing Framework for Concurrent Programs”, 2009
+[5] Qingzhou Luo, Sai Zhang, Jianjun Zhao, and Min Hu, “A Lightweight and Portable Approach to Making Concurrent Failures Reproducible”, 2010</p>
 
 <h3>
 <a id="authors" class="anchor" href="#authors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Authors</h3>
