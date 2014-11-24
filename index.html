@@ -28,7 +28,8 @@
         </ul>
       </header>
       <section>
-        <p>Problem Statement</p>
+        <h3>
+<a id="problem-statement" class="anchor" href="#problem-statement" aria-hidden="true"><span class="octicon octicon-link"></span></a>Problem Statement</h3>
 
 <p>Modern web and distributed applications heavily rely on concurrent execution. As usage of multi-core </p>
 
@@ -40,7 +41,7 @@
 
 <p>number of possible interleavings is enormous - exponential to the length of the program and the number of threads </p>
 
-<p>[1]. These interleavings depend on the context switches that happened during the run which are very difficult to </p>
+<p>.These interleavings depend on the context switches that happened during the run which are very difficult to </p>
 
 <p>predict; thus, the probability of reproducing a concurrent failure is extremely low. Stress testing methods such as </p>
 
@@ -48,7 +49,8 @@
 
 <p>that are independent of I/O latency and network usage will usually lead to the same interleaving. We believe that an </p>
 
-<p>effective concurrency fuzzer should have the following characteristics:</p>
+<h2>
+<a id="effective-concurrency-fuzzer-should-have-the-following-characteristics" class="anchor" href="#effective-concurrency-fuzzer-should-have-the-following-characteristics" aria-hidden="true"><span class="octicon octicon-link"></span></a>effective concurrency fuzzer should have the following characteristics:</h2>
 
 <ol>
 <li><p>Accuracy - Find valid bugs with particular emphasis on minimizing false positives.</p></li>
@@ -67,7 +69,8 @@
 
 <p>extensible framework for the tool to support customizations.  </p>
 
-<p>Our Idea</p>
+<h3>
+<a id="our-idea" class="anchor" href="#our-idea" aria-hidden="true"><span class="octicon octicon-link"></span></a>Our Idea</h3>
 
 <p>We plan to combine different techniques to create a new method of concurrency bug detection. Fuzz testing </p>
 
@@ -113,7 +116,8 @@
 
 <p>automate running tests to further simplify the task of finding bugs.</p>
 
-<p>Implementation Plan </p>
+<h3>
+<a id="implementation-plan" class="anchor" href="#implementation-plan" aria-hidden="true"><span class="octicon octicon-link"></span></a>Implementation Plan</h3>
 
 <p>We are currently scheduling our project to be completed in eight full weeks after our initial preparation </p>
 
@@ -155,7 +159,8 @@
 
 <p>will finish the project by 28. November.</p>
 
-<p>Evaluation Criteria</p>
+<h3>
+<a id="evaluation-criteria" class="anchor" href="#evaluation-criteria" aria-hidden="true"><span class="octicon octicon-link"></span></a>Evaluation Criteria</h3>
 
 <p>The concurrency bug detection algorithm and replay algorithm will form the core of our tool. The efficacy </p>
 
@@ -167,7 +172,8 @@
 
 <p>valid bugs and reduces the likelihood of false positives.</p>
 
-<p>References</p>
+<h3>
+<a id="references" class="anchor" href="#references" aria-hidden="true"><span class="octicon octicon-link"></span></a>References</h3>
 
 <p>[1] O. Edelstein, E. Farchi, Y. Nir, G. Ratsaby, S. Ur, “Multithreaded Java program test generation”,pp1,  2002.</p>
 
@@ -177,15 +183,16 @@
 
 <p>[3] Evgeny Vainer, Amiram Yehudai, “Controlling Concurrent Behavior while Testing Multithreaded Software”,  </p>
 
-<p>2013.</p>
+<p>2013.
+[4] Pallavi Joshi, Mayur Naik, Chang-Seo Park, and Koushik Sen, “CalFuzzer: An Extensible Active Testing
+Framework for Concurrent Programs”, 2009
+[5] Qingzhou Luo, Sai Zhang, Jianjun Zhao, and Min Hu, “A Lightweight and Portable Approach to Making
+Concurrent Failures Reproducible”, 2010</p>
 
-<p>[4] Pallavi Joshi, Mayur Naik, Chang-Seo Park, and Koushik Sen, “CalFuzzer: An Extensible Active Testing</p>
+<h3>
+<a id="authors" class="anchor" href="#authors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Authors</h3>
 
-<p>Framework for Concurrent Programs”, 2009</p>
-
-<p>[5] Qingzhou Luo, Sai Zhang, Jianjun Zhao, and Min Hu, “A Lightweight and Portable Approach to Making</p>
-
-<p>Concurrent Failures Reproducible”, 201</p>
+<p>Achin Kulshrestha and Alexander Morris.</p>
       </section>
       <footer>
         <p>This project is maintained by <a href="https://github.com/achinkulshrestha">achinkulshrestha</a></p>
