@@ -33,8 +33,8 @@
 
 <p>Modern web and distributed applications heavily rely on concurrent execution. As usage of multi-core processors gain momentum, client side programs are also switching to multiple threads in their code. However, even for skilled developers, creating multithreaded software is a challenge. Concurrency issues such as deadlocks and data races are often tough to fix without being able to reproduce them. In a multi-threaded concurrent program, the number of possible interleavings is enormous - exponential to the length of the program and the number of threads .These interleavings depend on the context switches that happened during the run which are very difficult to predict; thus, the probability of reproducing a concurrent failure is extremely low. Stress testing methods such as repeatedly executing the program for different payloads with the hope of finding a bug is not efficient because tests that are independent of I/O latency and network usage will usually lead to the same interleaving. We believe that an </p>
 
-<h2>
-<a id="effective-concurrency-fuzzer-should-have-the-following-characteristics" class="anchor" href="#effective-concurrency-fuzzer-should-have-the-following-characteristics" aria-hidden="true"><span class="octicon octicon-link"></span></a>effective concurrency fuzzer should have the following characteristics:</h2>
+<h3>
+<a id="effective-concurrency-fuzzer-should-have-the-following-characteristics" class="anchor" href="#effective-concurrency-fuzzer-should-have-the-following-characteristics" aria-hidden="true"><span class="octicon octicon-link"></span></a>Effective concurrency fuzzer should have the following characteristics:</h3>
 
 <ol>
 <li>Accuracy - Find valid bugs with particular emphasis on minimizing false positives.</li>
