@@ -1,6 +1,7 @@
 #include "log.h"
 #include "mutatee.h"
 
+#include <Event.h>
 #include <BPatch.h>
 #include <BPatch_addressSpace.h>
 #include <BPatch_function.h>
@@ -8,6 +9,7 @@
 #include <BPatch_module.h>
 #include <BPatch_point.h>
 #include <BPatch_process.h>
+#include <PCProcess.h>
 
 #define nullptr 0
 
@@ -16,6 +18,7 @@ static void callback_create(BPatch_process*, BPatch_thread*);
 static void callback_destroy(BPatch_process*, BPatch_thread*);
 static void callback_exit(BPatch_thread*, BPatch_exitType);
 static void callback_signals(BPatch_point*, long, std::vector<Dyninst::Address>*);
+static Dyninst::ProcControlAPI::Process::cb_ret_t callback_lowsig(Dyninst::ProcControlAPI::Event::const_ptr);
 
 // global variable to represent dyninst library. 
 static BPatch bpatch;
@@ -94,6 +97,22 @@ static bool bpatch_initializer() {
         success = false;
     }
     
+    // set low-level signal callback.
+    if (Dyninst::ProcControlAPI::Process::registerEventCallback(Dyninst::ProcControlAPI::EventType::Signal, callback_lowsig)) {
+        log::info() << "registered low-level signal callback." << std::endl;
+    } else {
+        log::debug() << "could not register low-level signal callback." << std::endl;
+        success = false;
+    }
+    
+    // set low-level crash callback.
+    if (Dyninst::ProcControlAPI::Process::registerEventCallback(Dyninst::ProcControlAPI::EventType::Crash, callback_lowsig)) {
+        log::info() << "registered low-level crash callback." << std::endl;
+    } else {
+        log::debug() << "could not register low-level crash callback." << std::endl;
+        success = false;
+    }
+    
     bpatch_initialized = true;
     return success;
 }
@@ -131,6 +150,15 @@ static void callback_signals(BPatch_point* at, long signal, std::vector<Dyninst:
     log::info() << "current process received signal " << signal << "." << std::endl;
 }
 
+static Dyninst::ProcControlAPI::Process::cb_ret_t callback_lowsig(Dyninst::ProcControlAPI::Event::const_ptr event) {
+    if (event->getEventType().code() == Dyninst::ProcControlAPI::EventType::Signal) {
+        log::info() << "received signal " << event->getEventSignal()->getSignal() << "." << std::endl;
+    } else if (event->getEventType().code() == Dyninst::ProcControlAPI::EventType::Crash) {
+        log::info() << "crashing under " << event->getEventCrash()->getTermSignal() << "." << std::endl;
+    }
+    return Dyninst::ProcControlAPI::Process::cbDefault;
+}
+
 /* structure to hold mutatee data and hide implementation from other files. */
 struct mutatee::mdata {
     const char** argv;
@@ -138,6 +166,8 @@ struct mutatee::mdata {
     BPatch_addressSpace* addr_space;
     BPatch_image*        proc_image;
     BPatch_function*     dely_function;
+    BPatch_process*      high_process;
+    PCProcess*           lowl_process;
     BPatch_snippet*      dely_snippet;
     int pid;
     
@@ -166,6 +196,8 @@ mutatee::mutatee(char** argv, char** envp) {
     data->envp = (const char**)envp;
     data->addr_space = nullptr;
     data->proc_image = nullptr;
+    data->high_process = nullptr;
+    data->lowl_process = nullptr;
     data->dely_function = nullptr;
     data->dely_snippet = nullptr;
     
@@ -173,9 +205,7 @@ mutatee::mutatee(char** argv, char** envp) {
     if (!bpatch_initialized) { bpatch_initializer(); }
 }
     
-bool mutatee::create_process(int in, int out, int err) {
-    int pid;
-    
+bool mutatee::create_process(int in, int out, int err) {    
     // check if a process already exists.
     if (data->addr_space != nullptr) {
         log::debug() << "creating process over existing process." << std::endl;
@@ -193,44 +223,50 @@ bool mutatee::create_process(int in, int out, int err) {
         return false;
     }
     
-    // get pid.
-    pid = dynamic_cast<BPatch_process*>(data->addr_space)->getPid();
+    // set processes.
+    data->high_process = dynamic_cast<BPatch_process*>(data->addr_space);
+    data->lowl_process = data->high_process->lowlevel_process();
+    
+    // check we succeeded.
+    if (data->lowl_process == nullptr) {
+        log::debug() << "could not obtain low-level process for `"
+                     << data->argv[0] << "." << std::endl;
+        return false;
+    }
+    
+    // set pid.
+    data->pid = data->high_process->getPid();
     
     // set image.
     data->proc_image = data->addr_space->getImage();
-    log::info() << "created new process [" << pid << "]." << std::endl;
+    log::info() << "created new process [" << data->pid << "]." << std::endl;
     
     return true;
 }
 
-bool mutatee::destroy_process() {
-    BPatch_process* proc;
-    int pid;
-    
+bool mutatee::destroy_process() {   
     // check that a process exists.
     if (data->addr_space == nullptr) {
         log::warn() << "attempting to destroy no process." << std::endl;
         return false;
     }
     
-    // get process.
-    proc = dynamic_cast<BPatch_process*>(data->addr_space);
-    pid = proc->getPid();
-    proc->terminateExecution();
+    data->high_process->terminateExecution();
     
     // clear variables. TODO: properly destroy these.
     data->addr_space = nullptr;
     data->proc_image = nullptr;
+    data->high_process = nullptr;
+    data->lowl_process = nullptr;
     data->dely_function = nullptr;
     data->dely_snippet = nullptr;
     
-    log::info() << "destroyed process [" << pid << "]." << std::endl;
+    log::info() << "destroyed process [" << data->pid << "]." << std::endl;
 }
 
 int mutatee::execute() {
-    BPatch_process* proc;
+    BPatch_process* proc = data->high_process;
     int status = 50512;
-    int pid;
     
     // check that a process exists.
     if (data->addr_space == nullptr) {
@@ -238,19 +274,15 @@ int mutatee::execute() {
         return EXEC_FAIL;
     }
     
-    // get process.
-    proc = dynamic_cast<BPatch_process*>(data->addr_space);
-    pid = proc->getPid();
-    
     // wait while execution continues.
     while (!proc->isTerminated()) {
         
         if (proc->isStopped()) {
-            log::info() << "process [" << pid << "] stopped by signal " 
+            log::info() << "process [" << data->pid << "] stopped by signal " 
                         << proc->stopSignal() << " " << proc->isStopped() << "." << std::endl;
                         
             proc->continueExecution();
-            log::info() << "executing process [" << pid << "]." << std::endl;
+            log::info() << "executing process [" << data->pid << "]." << std::endl;
         } else {
             
         }
@@ -259,14 +291,14 @@ int mutatee::execute() {
         bpatch.waitForStatusChange();
         
     }
-    log::info() << "process [" << pid << "] has finished execution." << std::endl;
+    log::info() << "process [" << data->pid << "] has finished execution." << std::endl;
     
     // save exit status and destroy process. 
     if (proc->terminationStatus() == BPatch_exitType::ExitedNormally) {
         status = proc->getExitCode();
     } else {
         status = EXEC_FAIL;
-        log::alert() << "process [" << pid << "] exited due to signal " 
+        log::alert() << "process [" << data->pid << "] exited due to signal " 
                      << proc->getExitSignal() << "." << std::endl;
     }
     destroy_process();

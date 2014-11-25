@@ -1,6 +1,6 @@
 INC_PATH=/u/a/c/achink/dyn_build/include
 LIB_PATH=/u/a/c/achink/dyn_build/lib
-DYN_LIBS=-ldyninstAPI -lelf -ldwarf
+DYN_LIBS=-ldyninstAPI -lpcontrol -lelf -ldwarf
 DYN_OBJS=parse-args.o printer.o log.o mutatee.o trial-run.o utils.o random.o
 RT_SRCS=dynamo-rt.cpp random.cpp log.cpp
 CFLAGS=--std=c++11
