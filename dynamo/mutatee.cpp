@@ -45,7 +45,7 @@ static bool bpatch_initializer() {
     
     
     // enable trampoline recursion to improve performance. 
-    bpatch.setTrampRecursive(true);
+    bpatch.setTrampRecursive(false);
     
     // disable parsing debugging symbols to improve peformance.
     bpatch.setDebugParsing(false);
