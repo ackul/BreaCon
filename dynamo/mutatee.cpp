@@ -98,7 +98,7 @@ static bool bpatch_initializer() {
     }
     
     // set low-level signal callback.
-    if (Dyninst::ProcControlAPI::Process::registerEventCallback(Dyninst::ProcControlAPI::EventType::Signal, callback_lowsig)) {
+    /*if (Dyninst::ProcControlAPI::Process::registerEventCallback(Dyninst::ProcControlAPI::EventType::Signal, callback_lowsig)) {
         log::info() << "registered low-level signal callback." << std::endl;
     } else {
         log::debug() << "could not register low-level signal callback." << std::endl;
@@ -111,7 +111,7 @@ static bool bpatch_initializer() {
     } else {
         log::debug() << "could not register low-level crash callback." << std::endl;
         success = false;
-    }
+    }*/
     
     bpatch_initialized = true;
     return success;
@@ -276,7 +276,7 @@ int mutatee::execute() {
     
     // wait while execution continues.
     while (!proc->isTerminated()) {
-        
+        bpatch.waitForStatusChange();
         if (proc->isStopped()) {
             log::info() << "process [" << data->pid << "] stopped by signal " 
                         << proc->stopSignal() << " " << proc->isStopped() << "." << std::endl;
@@ -288,13 +288,13 @@ int mutatee::execute() {
         }
 
         
-        bpatch.waitForStatusChange();
+        //bpatch.waitForStatusChange();
         
     }
     log::info() << "process [" << data->pid << "] has finished execution." << std::endl;
     
     // save exit status and destroy process. 
-    if (proc->terminationStatus() == BPatch_exitType::ExitedNormally) {
+    if (proc->terminationStatus() == BPatch_exitType::ExitedNormally && proc->getExitSignal() == -1) {
         status = proc->getExitCode();
     } else {
         status = EXEC_FAIL;
