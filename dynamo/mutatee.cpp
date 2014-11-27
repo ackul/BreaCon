@@ -29,13 +29,14 @@ static bool bpatch_initialized = false;
 /* returns true if the passed name is a blacklisted module. */
 static bool blacklisted_module(char* name) {
     std::string module(name);
+    log::bore() << "checking `" << module << "' for blacklist." << std::endl;
     
     // black list dyninst, dynamo, and standard libraries.
     if (module.find("libdyninst") == 0 | module.find("libdynamo") == 0 |
         module.find("crtstuff") == 0   | module.find("libstdc++") == 0 |
         module.find("libm") == 0       | module.find("libgcc") == 0 |
         module.find("libc") == 0       | module.find("libdl") == 0 |
-        module.find("libpthread") == 0) {
+        module.find("libpthread") == 0 | module.find("libbz2") == 0) {
             return true;    
     }
     return false;
@@ -391,7 +392,7 @@ bool mutatee::instrument_memory(const parameters& params) {
         
         
         // skip module if in black list.
-        if (blacklisted_module((char*)&mod_name)) { continue; }
+        if (blacklisted_module((char*)&mod_name)) { ++mb; continue; }
         
         // retrieve functions in module.
         log::info() << "instrumenting module `" << (char*)mod_name 
@@ -402,6 +403,7 @@ bool mutatee::instrument_memory(const parameters& params) {
         if (functions == nullptr) {
             log::debug() << "could not retrieve functions in `" << mod_name 
                          << "'." << std::endl;
+            ++mb;
             continue;
         }
         

@@ -42,6 +42,17 @@ std::ostream& log::alert() {
     return null();
 }
 
+std::ostream& log::bore() {
+    // log if we have appropriate level.
+    if (level() >= LBOR) {
+        clog() << "[VERBOSE] ";
+        return clog();
+    }
+    
+    // otherwise, return null stream.
+    return null();
+}
+
 std::ostream& log::clog() {
     return std::clog;
 }

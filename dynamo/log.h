@@ -12,6 +12,9 @@ class log {
     /* stream for printing alerts. only prints if level is at least LART. */   
     static std::ostream& alert();
     
+    /* stream for extra boring information. prints if LBOR. */
+    static std::ostream& bore();
+    
     /* standard log stream. */
     static std::ostream& clog();
     
@@ -51,7 +54,8 @@ class log {
                      LDBG = 3,
                      LWRN = 4,
                      LINF = 5,
-                     LMAX = 5;
+                     LBOR = 6,
+                     LMAX = 6;
                      
     
   private:
