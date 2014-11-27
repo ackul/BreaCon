@@ -3,7 +3,7 @@
 
 #include <ostream>
 
-/* class for logging output. all print to clog except for null and cout. 
+/* class for logging output. all print to clog except for null, cout, dynamo. 
    all streams besides clog, cout, and null print a header describing their
    purpose when called if the log level is sufficiently high. if the level
    is too low, the streams do not print anything and return the null stream. */
@@ -20,6 +20,9 @@ class log {
     
     /* stream for printing debug. only prints if level is at least LDBG. */
     static std::ostream& debug();
+    
+    /* stream for standard output. */
+    static std::ostream& dynamo();
     
     /* stream for printing errors. only prints if level is at least LERR. */
     static std::ostream& error();

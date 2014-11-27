@@ -64,12 +64,13 @@ static bool bpatch_initializer() {
     }
     
     // set the callback and log.
-    if (bpatch.registerSignalHandlerCallback(callback_signals, signals)) {
+    // TODO: remove as this is not function anyway.
+    /*if (bpatch.registerSignalHandlerCallback(callback_signals, signals)) {
         log::info() << "registered signal callback for signals [0, 35]." << std::endl;
     } else {
         log::debug() << "could not register signal callback." << std::endl;
         success = false;
-    }
+    }*/
     
     // set the thread create and destroy callbacks.
     if (bpatch.registerThreadEventCallback(BPatch_threadCreateEvent, callback_create)) {
@@ -98,6 +99,7 @@ static bool bpatch_initializer() {
     }
     
     // set low-level signal callback.
+    // TODO: remove as this should not be used.
     /*if (Dyninst::ProcControlAPI::Process::registerEventCallback(Dyninst::ProcControlAPI::EventType::Signal, callback_lowsig)) {
         log::info() << "registered low-level signal callback." << std::endl;
     } else {
@@ -150,14 +152,15 @@ static void callback_signals(BPatch_point* at, long signal, std::vector<Dyninst:
     log::info() << "current process received signal " << signal << "." << std::endl;
 }
 
-static Dyninst::ProcControlAPI::Process::cb_ret_t callback_lowsig(Dyninst::ProcControlAPI::Event::const_ptr event) {
+// TODO: remove as this should not be used.
+/*static Dyninst::ProcControlAPI::Process::cb_ret_t callback_lowsig(Dyninst::ProcControlAPI::Event::const_ptr event) {
     if (event->getEventType().code() == Dyninst::ProcControlAPI::EventType::Signal) {
         log::info() << "received signal " << event->getEventSignal()->getSignal() << "." << std::endl;
     } else if (event->getEventType().code() == Dyninst::ProcControlAPI::EventType::Crash) {
         log::info() << "crashing under " << event->getEventCrash()->getTermSignal() << "." << std::endl;
     }
     return Dyninst::ProcControlAPI::Process::cbDefault;
-}
+}*/
 
 /* structure to hold mutatee data and hide implementation from other files. */
 struct mutatee::mdata {
@@ -267,6 +270,7 @@ bool mutatee::destroy_process() {
 int mutatee::execute() {
     BPatch_process* proc = data->high_process;
     int status = 50512;
+    bool not_first = false;
     
     // check that a process exists.
     if (data->addr_space == nullptr) {
@@ -274,17 +278,20 @@ int mutatee::execute() {
         return EXEC_FAIL;
     }
     
+    log::info() << "beginning execution [" << data->pid << "]." << std::endl;
+    
     // wait while execution continues.
     while (!proc->isTerminated()) {
         bpatch.waitForStatusChange();
-        if (proc->isStopped()) {
+        if (proc->isStopped() && not_first) {
             log::info() << "process [" << data->pid << "] stopped by signal " 
-                        << proc->stopSignal() << " " << proc->isStopped() << "." << std::endl;
+                        << proc->stopSignal() <<  "." << std::endl;
                         
             proc->continueExecution();
             log::info() << "executing process [" << data->pid << "]." << std::endl;
         } else {
-            
+            not_first = true;
+            proc->continueExecution();
         }
 
         
@@ -297,9 +304,9 @@ int mutatee::execute() {
     if (proc->terminationStatus() == BPatch_exitType::ExitedNormally && proc->getExitSignal() == -1) {
         status = proc->getExitCode();
     } else {
-        status = EXEC_FAIL;
-        log::alert() << "process [" << data->pid << "] exited due to signal " 
+        log::warn() << "process [" << data->pid << "] exited due to signal " 
                      << proc->getExitSignal() << "." << std::endl;
+        status = 128 + proc->getExitSignal();
     }
     destroy_process();
     
@@ -344,6 +351,10 @@ bool mutatee::find_delay_function(const std::string& library_name,
                 << "'." << std::endl;
     
     return true;
+}
+
+int mutatee::get_pid() const {
+    return data->pid;
 }
 
 bool mutatee::instrument_memory(const parameters& params) {

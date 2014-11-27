@@ -51,5 +51,8 @@ int main(int argc, char** argv, char** envp) {
         trial_run(i, prog, mutatee_params, run_params);
     }
     
+    // report the results.
+    trial_run::report();
+    
     return 0;
 }
