@@ -1,0 +1,110 @@
+.\" Manpage for dynamo build 125.
+.TH dynamo 1 "27 Nov 2014" "dynamo"
+.SH NAME
+dynamo \- test multi-threaded applications for concurrency bugs.
+.SH SYNOPSIS
+dynamo [dynamo-arguments] mutatee [mutatee-arguments]
+.SH DESCRIPTION
+dynamo tests a mutatee for concurrency bugs by randomly delaying the scheduling.
+A variety of arguments may be passed to dynamo to configure this behavior.
+There is only one required argument, the name of the mutatee.
+Any additional arguments after the mutatee will be passed to the mutatee.
+dynamo will run the mutatee multiple times and report on the results of each trial.
+A trial may succeed, meaning no errors were detected, or it may crash, be terminated due to a timeout, or killed. These options are configured as shown below.
+.SH DYNAMO ARGUMENTS
+.TP
+.B \-h
+Displays a brief help and usage message.
+.TP
+.B \-v
+Displays the version information.
+.TP
+.B \-t n
+Sets the number of trials to n. This is the number of times dynamo will attempt to run the mutatee.
+The default number is 10.
+.TP
+.B \-T n
+Sets the timeout for each trial to n. If this argument is specified, each trial will be given n seconds to execute.
+If the mutatee does not finish within that time, it will be sent a TERM signal and given another n seconds to exit.
+If it still has not exited, a KILL signal will be sent. The default value is 0, meaning no timeout.
+.TP
+.B \-m
+Enables instrumenting mutexes. The effect of this is that the releasing of locks is modified to delay for a short period of time.
+The length of the delay is specified by the \-d, \-l, and \-u arguments.
+.TP
+.B \-a
+Enables instrumenting memory accesses. The effect of this is that each store instruction is modified to delay for a short period of time.
+The length of the delay is specified by the \-d, \-l, and \-u arguments.
+The probability that a given instruction will be modified is specified by the \-i argument.
+.TP
+.B \-p n
+Sets the probability that an instrumented point will cause a delay to n percent.
+Each time time an instrumented point is reached, there is a chance that it may
+or may not cause a delay. This is done to ensure randomness in each trial.
+By default, 75 percent of all executions of instrumented points cause delays.
+.TP
+.B \-i n
+Sets the probability of instrumenting a memory access instruction to n percent. For
+performance purposes, and ensuring randomness, not all memory accesses need to be
+instrumented if the \-a argument is given. By default, this value is 100 percent.
+.TP
+.B \-l n
+Sets the lower bound for delay times to n milliseconds. If a delay occurs at an
+instrumented point, the length of the delay is randomly generated to be within
+a specified range. This argument sets the lower bound of that range to n. The
+default value is 1000 milliseconds.
+.TP
+.B \-u n
+Sets the upper bound for delay times to n milliseconds. If a delay occurs at an
+instrumented point, the length of the delay is randomly generated to be within
+a specified range. This argument sets the upper bound of that range to n. The
+default value is 1000 milliseconds.
+.TP
+.B \-d n
+Sets the both the lower and upper bounds for delay times to n. This has the same
+effect as using \-l n and \-u n. 
+.TP
+.B \-o s
+Sets the output root file name to s. By default, dynamo creates new files for
+the standard error and output streams for each trial of the mutatee. These files
+are saved for later inspection by the user. These files have the name <root>.<id>.<type>
+where <root> is given by the value s passed with this argument, <id> is the id of
+the trial, and <type> is either err or out. Redirection of these streams to files
+may be disabled with the \-1 and \-2 arguments. The default value of s is 'a'.
+.TP
+.B \-I s
+Sets the input file for the mutatee to s. By default, dynamo passes its own
+standard input stream to each trial of the mutatee. However, if this argument
+is specified, s will be opened on each trial of the mutatee.
+.TP
+.B \-1
+Disables redirection to file for the mutatee's standard out streams and merges
+dynamo's stndard out stream with the mutatee.
+.TP
+.B \-2
+Disables redirection to file for the mutatee's standard error streams and merges
+dynamo's stndard error stream with the mutatee.
+.TP
+.B \-D n
+Changes the logging level. Currently, this may be a value between 0 and 6, inclusive.
+The default level is 2. Higher values will cause more information to be printed
+to the error stream.
+.SH EXAMPLES
+.PP
+To run five trials of a program 'foo' with mutexes instrumented:
+.PP
+dynamo -t 5 -m foo
+.PP
+The above, but with error and output streams named foo-results.<id>.<type>:
+.PP
+dynamo -t 5 -m -o foo-results foo
+.PP
+Run pbzip2 with the arguments \-f and \-k without redirecting error and output streams:
+.PP
+dynamo -1 -2 pbzip2 -f -k
+.SH SEE ALSO
+cs736(7) uwmadison(7) bartmiller(7)
+.SH BUGS
+Dyninst may cause this tool to be essentially ineffective.
+.SH AUTHOR
+Achin Kulshrestha and Alex Morris
