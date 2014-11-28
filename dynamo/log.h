@@ -3,7 +3,7 @@
 
 #include <ostream>
 
-/* class for logging output. all print to clog except for null and cout. 
+/* class for logging output. all print to clog except for null, cout, dynamo. 
    all streams besides clog, cout, and null print a header describing their
    purpose when called if the log level is sufficiently high. if the level
    is too low, the streams do not print anything and return the null stream. */
@@ -11,6 +11,9 @@ class log {
   public: 
     /* stream for printing alerts. only prints if level is at least LART. */   
     static std::ostream& alert();
+    
+    /* stream for extra boring information. prints if LBOR. */
+    static std::ostream& bore();
     
     /* standard log stream. */
     static std::ostream& clog();
@@ -20,6 +23,9 @@ class log {
     
     /* stream for printing debug. only prints if level is at least LDBG. */
     static std::ostream& debug();
+    
+    /* stream for standard output. */
+    static std::ostream& dynamo();
     
     /* stream for printing errors. only prints if level is at least LERR. */
     static std::ostream& error();
@@ -48,7 +54,8 @@ class log {
                      LDBG = 3,
                      LWRN = 4,
                      LINF = 5,
-                     LMAX = 5;
+                     LBOR = 6,
+                     LMAX = 6;
                      
     
   private:

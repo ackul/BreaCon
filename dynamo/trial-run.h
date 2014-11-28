@@ -25,6 +25,9 @@ class trial_run {
     /* helper function that forms the redirect mode setting for streams. */
     static int mode(const std::string&, bool, bool);
     
+    /* reports the results of all trials up to this point. */
+    static void report();
+
     /* stream identifiers. */
     static const int stdin = 0,
                      stdout = 1,
@@ -35,7 +38,20 @@ class trial_run {
                      SPLIT_OUT = 2,
                      SPLIT_ERR = 4;
     
+    /* constants for trial state. */
+    static const int TBEG = 0,
+                     TRUN = 1,
+                     TTRM = 2,
+                     TKIL = 3,
+                     TEND = 4;
+    
   private:
+    /* score card variables. */
+    static int score_success,
+               score_term,
+               score_crash,
+               score_kill,
+               score_fail;
 };
 
 #endif

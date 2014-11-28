@@ -28,7 +28,7 @@ std::string utils::create_file_name(const std::string& base, int type, int id) {
                          << __LINE__ << std::endl;
     }
     
-    log::info() << "created file name `" << name << "'." << std::endl; 
+    log::bore() << "created file name `" << name << "'." << std::endl; 
     
     return name;
 }
@@ -39,7 +39,7 @@ int utils::open_for_read(const std::string& name) {
         log::debug() << "could not open `" << name 
                      << "' for reading." << std::endl;
     }
-    log::info() << "opened `" << name << "' for reading on fd " 
+    log::bore() << "opened `" << name << "' for reading on fd " 
                 << fd << "." << std::endl;
     return fd;
 }
@@ -50,7 +50,7 @@ int utils::open_for_write(const std::string& name) {
         log::debug() << "could not open `" << name 
                      << "' for writing." << std::endl;
     }
-    log::info() << "opened `" << name << "' for writing on fd " 
+    log::bore() << "opened `" << name << "' for writing on fd " 
                 << fd << "." << std::endl;
     return fd;
 }

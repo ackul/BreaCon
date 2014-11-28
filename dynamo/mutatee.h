@@ -31,6 +31,9 @@ class mutatee {
     /* finds a given delay function in the mutatee process. */
     bool find_delay_function(const std::string&, const std::string&);
     
+    /* returns the pid of the mutatee process. */
+    int get_pid() const;
+    
     /* instruments the memory accesses in the mutatee process. */
     bool instrument_memory(const parameters&);
     

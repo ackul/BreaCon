@@ -34,7 +34,18 @@ int log::_level = LDEF;
 std::ostream& log::alert() {
     // log if we have appropriate level.
     if (level() >= LART) {
-        clog() << "[ALERT] ";
+        clog() << "[ ALERT ] ";
+        return clog();
+    }
+    
+    // otherwise, return null stream.
+    return null();
+}
+
+std::ostream& log::bore() {
+    // log if we have appropriate level.
+    if (level() >= LBOR) {
+        clog() << "[VERBOSE] ";
         return clog();
     }
     
@@ -53,7 +64,7 @@ std::ostream& log::cout() {
 std::ostream& log::debug() {
     // log if we have appropriate level.
     if (level() >= LDBG) {
-        clog() << "[DEBUG] ";
+        clog() << "[ DEBUG ] ";
         return clog();
     }
     
@@ -61,10 +72,15 @@ std::ostream& log::debug() {
     return null();
 }
 
+std::ostream& log::dynamo() {
+    cout() << "[DYNAMO] ";
+    return cout();
+}
+
 std::ostream& log::error() {
     // log if we have appropriate level.
     if (level() >= LERR) {
-        clog() << "[ERROR] ";
+        clog() << "[ ERROR ] ";
         return clog();
     }
     
@@ -75,7 +91,7 @@ std::ostream& log::error() {
 std::ostream& log::info() {
     // log if we have appropriate level.
     if (level() >= LINF) {
-        clog() << "[INFO ] ";
+        clog() << "[  LOG  ] ";
         return clog();
     }
     
@@ -100,7 +116,7 @@ std::ostream& log::null() {
 std::ostream& log::warn() {
     // log if we have appropriate level.
     if (level() >= LWRN) {
-        clog() << "[WARN ] ";
+        clog() << "[WARNING] ";
         return clog();
     }
     
