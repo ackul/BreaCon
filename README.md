@@ -2,22 +2,16 @@ BreaCon
 =======
 
 Breaking the Concurrency: Randomizing the Thread Scheduler to unravel hidden bugs
-.\" Manpage for dynamo build 125.
-.TH dynamo 1 "27 Nov 2014" "dynamo"
-.SH NAME
+Manpage for dynamo build 125.
+dynamo 1 "27 Nov 2014" "dynamo"
 dynamo \- test multi-threaded applications for concurrency bugs.
-.SH SYNOPSIS
 dynamo [dynamo-arguments] mutatee [mutatee-arguments]
-.SH DESCRIPTION
 dynamo tests a mutatee for concurrency bugs by randomly delaying the scheduling.
 A variety of arguments may be passed to dynamo to configure this behavior.
 There is only one required argument, the name of the mutatee.
 Any additional arguments after the mutatee will be passed to the mutatee.
 dynamo will run the mutatee multiple times and report on the results of each trial.
 A trial may succeed, meaning no errors were detected, or it may crash, be terminated due to a timeout, or killed. These options are configured as shown below.
-.SH DYNAMO ARGUMENTS
-.TP
-.B \-h
 Displays a brief help and usage message.
 .TP
 .B \-v
