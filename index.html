@@ -28,63 +28,192 @@
         </ul>
       </header>
       <section>
-        <h3>
-<a id="problem-statement" class="anchor" href="#problem-statement" aria-hidden="true"><span class="octicon octicon-link"></span></a>Problem Statement</h3>
+        <h1>
+<a id="putting-the-thread-scheduler-under-trial" class="anchor" href="#putting-the-thread-scheduler-under-trial" aria-hidden="true"><span class="octicon octicon-link"></span></a>Putting the Thread Scheduler under Trial</h1>
 
-<p>Modern web and distributed applications heavily rely on concurrent execution. As usage of multi-core processors gain momentum, client side programs are also switching to multiple threads in their code. However, even for skilled developers, creating multithreaded software is a challenge. Concurrency issues such as deadlocks and data races are often tough to fix without being able to reproduce them. In a multi-threaded concurrent program, the number of possible interleavings is enormous - exponential to the length of the program and the number of threads .These interleavings depend on the context switches that happened during the run which are very difficult to predict; thus, the probability of reproducing a concurrent failure is extremely low. Stress testing methods such as repeatedly executing the program for different payloads with the hope of finding a bug is not efficient because tests that are independent of I/O latency and network usage will usually lead to the same interleaving. We believe that an </p>
+<h4>
+<a id="achin-kulshrestha" class="anchor" href="#achin-kulshrestha" aria-hidden="true"><span class="octicon octicon-link"></span></a>Achin Kulshrestha</h4>
+
+<h4>
+<a id="alexander-morris" class="anchor" href="#alexander-morris" aria-hidden="true"><span class="octicon octicon-link"></span></a>Alexander Morris</h4>
+
+<h2>
+<a id="abstract" class="anchor" href="#abstract" aria-hidden="true"><span class="octicon octicon-link"></span></a>Abstract</h2>
+
+<p>Multicore hardware has made concurrent programs pervasive. Non-determinism, which naturally accompanies multi-threaded scheduling, increases the difficulty of finding and analyzing concurrency bugs that may occur only under specific thread interleavings. The number of possible interleavings in a multi-threaded program is enormous—exponential to the length of the program and the number of threads. Functional and stress testing techniques do not take into consideration the underlying scheduler's behavior and thus are unable to detect all concurrency bugs. Systematic techniques have been proposed to find faults in multi-threaded programs. However, such techniques do not scale well for large programs as the sample space hugely increases. A simple alternative is to perform randomization of the thread scheduler to generate different interleavings. This paper proposes a framework, Dynamo, which uses binary instrumentation to randomize thread schedules. We evaluate Dynamo using a variety of concurrency bugs found in well-known software, such as MySQL and Cherokee. We also analyze the accuracy and performance of our tool with multi-threaded benchmarks.</p>
 
 <h3>
-<a id="effective-concurrency-fuzzer-should-have-the-following-characteristics" class="anchor" href="#effective-concurrency-fuzzer-should-have-the-following-characteristics" aria-hidden="true"><span class="octicon octicon-link"></span></a>Effective concurrency fuzzer should have the following characteristics:</h3>
+<a id="1-introduction" class="anchor" href="#1-introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>1. Introduction</h3>
+
+<p>Multi-threaded programming can greatly increase the performance of applications, but it comes at the cost of learning a new programming paradigm and careful debugging.  Concurrency bugs in real world applications have caused some of the most insidious bugs, including the Northeast blackout of 2003 that left 55 million people without electricity for 48 hours [1]. Traditional programming paradigms do not consider the fact that data can change concurrently by different threads and that the ordering of instructions is non-deterministic due to various factors affecting the thread scheduler. These two facts, especially the latter, hinder debugging by reducing the occurrences of bugs during testing. Stress testing methods such as repeatedly executing the program for different payloads with the hope of finding a bug are not efficient because tests that are independent of I/O latency and network usage will usually lead to the same interleaving. Even if the program is declared data-race free, this does not imply valid synchronization. Several techniques help discover these hidden bugs, such as the lockset algorithm [2] and Lamport's happens-before algorithm [3]. We expand upon these techniques by bringing fuzz testing to the search for concurrency bugs. 
+Fuzz testing [4] operates by running a program many times and providing it with random input. The type of input provided depends on the nature of the application—keyboard input, mouse events, or network packets may be appropriate. Crashes indicate bugs in the program, while all other responses, including termination, are ignored. Thus, fuzzing tests the resilience of a program against many kinds of random input. We build on this idea to test the resilience of concurrent applications against different thread schedules. 
+We combined some domain knowledge about concurrency bugs with the idea of fuzz testing to build our tool, Dynamo. Our tool is not a debugger; instead, it aims to find bugs and provide the user with information regarding the detected bugs. Developers may then take this information to further test specific portions of their code base. Dynamo is also particularly effective at reproducing bugs during unit tests. We believe that using Dynamo to reproduce bugs in unit tests will allow developers to locate and fix concurrency bugs quickly.</p>
+
+<h3>
+<a id="2-motivation" class="anchor" href="#2-motivation" aria-hidden="true"><span class="octicon octicon-link"></span></a>2. Motivation</h3>
+
+<p>Our initial focus was on reproducing atomicity violations in multithreaded C and C++ applications; however, our tool has been expanded to reproduce other bugs as well. An atomicity violation is present when a group of code blocks that are designed to execute sequentially are not guaranteed to execute atomically. The violation occurs when these code blocks are executed in parallel and the thread scheduling causes an unexpected side effect. Figure 1 presents two functions that serve as the basis for an atomicity violation that occurs in Figure 2. Note that accesses to the balance variable are synchronized, so this is not a traditional data race.
+Figure 1: Balance access and modification functions</p>
+
+<p>int get_balance() {
+  lock.acquire();
+  int bal = balance;
+  lock.release();
+  return bal;
+}   void reduce_balance(int amt) {
+  lock.acquire();
+  balance = balance - amt;
+  lock.release();
+}
+These two functions are straight-forward in their approach to obtaining and modifying the ‘balance’ variable. A lock is used to prevent data races; however, it does not prevent atomicity violations between multiple threads. Example inspired from Chang-Seo Park et al [5].
+These functions provide a basis for an atomicity violation, because they may provide the programmer with a sense of security and correctness due to the use of locks. This use of a lock to synchronize the balance variable is incorrect; however, its intended use is to prevent data races on the variable. It is not enough to stop an atomicity violation, which may occur by calling these functions out of order by multiple threads, as seen in Figure 2. 
+Figure 2: An atomicity violation occurs by adjusting the balance simultaneously
+Thread 1    Thread 2
+   balance = 100
+   amount = 70</p>
+
+<p>bool withdraw(int amount) {
+   if (get_balance() &gt;= amount)
+   {
+     reduce_balance(amount);
+   }
+ }     balance = 100
+   amount = 70</p>
+
+<p>bool withdraw(int amount) {
+   if (get_balance() &gt;= amount) 
+   {
+   reduce_balance(amount); 
+   }
+  } 
+Thread 2 calls get_balance immediately after Thread 1, which results in both threads proceeding to reduce the balance by 70. This is an error, because only the first thread should succeed. The second thread should discover that the balance has insufficient funds for a second withdrawal.
+There are many different orderings that could execute and cause the violation to occur. In this example, Thread 1 calls get_balance to check if the balance contains sufficient funds for a withdrawal. Thread 2 then calls the same function out of order. Both threads are attempting to withdraw 70 dollars from a balance of 100 without awareness of the other. Thus, they incorrectly proceed to call reduce_balance. The result of this occurrence of the atomicity violation is that both withdrawals have succeeded and the balance is negative—an illegal situation that could not have occurred if this code were single threaded. Acquiring a lock before calling get_balance and releasing it after reduce_balance would remove the violation from the function, because there would be no way for the first two functions to be called out of order.</p>
+
+<h3>
+<a id="3-our-approach" class="anchor" href="#3-our-approach" aria-hidden="true"><span class="octicon octicon-link"></span></a>3. Our Approach</h3>
+
+<p>In this section we discuss the Dynamo approach in detail. Binary instrumentation [6] allows modifications on compiled binary files at run time. In order to randomize thread interleavings, the simplest method is to inject random delays at specific points inside the binary.  However, it is not feasible to instrument every statement in a program, because that would significantly disrupt the normal flow of execution without aiding in detecting bugs. We started with a strategy to detect atomicity violations and then extended Dynamo to detect data races. We now present our approaches for handling each of these bug types.<br>
+Our approach to reproducing atomicity violations is simple:  we perform dynamic instrumentation to temporarily stall threads while they are releasing locks. If a violation is present, the other threads may catch up with the stalled thread and begin executing a code block out of order as shown in Figure 3. If there is no violation, this is not possible, because the other threads will be working with private data or waiting on locks. It is difficult to determine the required length of the stall to force an existing atomicity violation to manifest itself. Therefore, we stall for a random duration within certain specified bounds. This has a side effect that the bug may not be reproduced in every trial of the program, but it should be reproduced at least once after many trials. </p>
+
+<p>The blue blocks above represent two code blocks executed by Thread 1. The orange blocks beneath them are the same blocks executed by Thread 2. The insertion of delays increases the amount of time each thread spends in each block. The extra time spent in Block 1 by Thread 1 causes Thread 2 to begin executing Block 1 before Thread 1 executes Block 2. However, if this example were properly synchronized, Thread 2 would be blocked until Thread 1 executes Block 2.
+    In addition to reproducing atomicity violations, Dynamo is capable of reproducing data races and other concurrency bugs. As shown in Figure 4, data races occur when more than one thread attempt to write to the same memory location in such a way that the final value cannot be known deterministically. In some cases, races are benign, because the introduced non-determinism does not harm the integrity of the program. However, cases exist that disrupt the program’s behavior. We reproduce these cases via our application of fuzz testing.
+    Dynamo can instrument a randomly selected subset of a program’s memory-writing instructions. Like with the releasing of locks, randomized delays are inserted before the store instruction. The length of the delay is generated at runtime to allow each instruction to be stalled for a different amount of time each time it is executed. This allows for multiple threads to execute the same code at once with the ability to move ahead or behind the other threads. In turn, this freedom increases the likelihood that concurrency bugs will be manifest for the same reason that the stalls are effective in reproducing atomicity violations—pausing one thread allows another to execute an operation out of order.</p>
+
+<p>Expected flow of execution is depicted on the left side where each thread reads, operates upon, and writes to a global variable. However, on the right side, the value written by Thread 1 in the end is different from what Thread 1 expected to write. Hence, leads to a data race.</p>
+
+<h3>
+<a id="4-implementation-details" class="anchor" href="#4-implementation-details" aria-hidden="true"><span class="octicon octicon-link"></span></a>4. Implementation Details</h3>
+
+<p>Dynamo is a flexible tool designed to significantly aid in the reproduction and discovery of concurrency bugs. At its core lies Dyninst [7, 8, 9], a third-party library we use to load programs into new processes, search the binaries for specific points, and insert our routines into those points. Our routines have been compiled into a runtime library that Dyninst loads into the new process. After the instrumentation has been completed, our tool allows the program to run normally. However, when execution reaches one of the instrumented points, it naturally follows a new course, stalling for a random length of time, and returning to the same point in the program. An example of this execution flow is shown in Figure 5. 
+    When a program terminates, we note whether termination was normal or a crash due to a signal. This information is logged, and the program is run again. For each run of a program, Dynamo redirects the output and error streams to files. A different file is used for each run, and the user may inspect the output of each run to identify bugs. Additionally, the user may provide Dynamo with an input file to be given to each run of the program. We believe that this functionality, together with other forms of parameterization, make Dynamo flexible and suitable for testing a variety of applications.</p>
+
+<p>The application’s instructions are normally executed up to a point, n. Our instrumented patch is then executed to insert a delay. The patch then returns control to the application at the next instruction that would have been executed had the patch not been inserted.</p>
+
+<h4>
+<a id="instrumentation-parameterization" class="anchor" href="#instrumentation-parameterization" aria-hidden="true"><span class="octicon octicon-link"></span></a>Instrumentation Parameterization</h4>
+
+<p>We allow the user to choose whether to instrument locks, store operations, or both. Our primary intention for instrumenting locks is to find atomicity violations, but it is possible that other bugs could be detected. In a similar fashion, instrumenting store operations could cause a number of bugs other than race conditions to be manifest. The lower and upper bounds for delay lengths and the percentage of memory accesses to be instrumented may be specified to further customize the bug reproducing abilities of Dynamo. We have included these options to allow Dynamo to be more useful by software developers in testing their software.
+    For example, increasing the upper bound of delay times has the effect of slowing down the execution of the program. This may be undesirable in applications that are time based and need to respond to events within a limited amount of time. These programs would best be tested with lower upper bounds. On the other hand, applications that are not time sensitive may have accesses to shared memory that are split far apart. A smaller upper bound may not alter the scheduling of threads significantly enough to force a race condition or atomicity violation to be manifest, but a larger upper bound would have a much more massive effect on the scheduling. </p>
+
+<h4>
+<a id="timeout-parameterization" class="anchor" href="#timeout-parameterization" aria-hidden="true"><span class="octicon octicon-link"></span></a>Timeout Parameterization</h4>
+
+<p>Dynamo supports setting a time limit on the duration of each run. If the timeout is reached before the testing program exits, Dynamo will send it a TERM signal. If the program still does not terminate, a KILL signal will be sent. We do not consider reaching the timeout to be an indication of the presence of a bug, because it is possible that the program needs a long time to run, especially if a large number of delays have been inserted by our tool. However, a bug-free application should respond to a TERM signal in a timely manner. We do count trials that must be killed as erroneous, but Dynamo distinguishes between trials that crashed and were killed to allow the user to thoroughly understand the behavior of the tested program.</p>
+
+<h3>
+<a id="5-evaluation" class="anchor" href="#5-evaluation" aria-hidden="true"><span class="octicon octicon-link"></span></a>5. Evaluation</h3>
+
+<p>We evaluate our work in three ways. First, we test Dynamo on programs containing trivial concurrency bugs. These tests serve as a proof of concept, and demonstrate that our method is reasonable. Second, we test Dynamo on bugs found in real applications and see if we were able to reproduce them. This demonstrates the practicality and effectiveness of using our tool to find a variety of bugs. Finally, we run some performance tests to determine the required investment in time to make utilizing our tool effective.<br>
+Our first test consists of two trivial programs—one for each of the two bugs on which we focus. The first program is based on the balance transaction discussed earlier and contains an atomicity violation. The second program contains a race condition in which multiple threads attempt to update and print a shared counter. We performed five thousand trial runs of both of these programs with and without Dynamo. Our results are shown in the first two rows of table 1.<br>
+During our testing, the bugs occurred approximately two percent or less of the time when the programs were run of their own. This confirms the widely held belief that concurrency bugs are hard to detect and reproduce. However, with our tool, we were able to drastically increase the occurrence of these bug—by over two orders of magnitude in the case of the atomicity violation. With Dynamo, the atomicity violation was reproduced over 75 percent of the time. 
+Our approach always utilizes randomness to help simulate real environments where the behavior of the thread scheduler is not known. However, in the case of atomicity violations, our tool targets the release of locks and inserts a delay to allow other threads to execute code blocks out of order. By honing in on this specific point, the probability of reproducing the bug is greater than a purely random approach, but we do not guarantee that the bug will be reproduced. The randomness in our delays, as well as that of the thread scheduler, permits bugs to pass without detection, because we cannot deterministically create a delay that will force out of order execution of atomic sequences. This plays a more significant role in non-trivial programs. 
+We also saw an increase in the occurrence of race conditions, but the improvement was not as significant as that for atomicity violations. The rate of occurrence increased by a single order of magnitude to approximately 20 percent. We attribute this to the fact that our approach to race conditions is broader and more heavily relies upon randomness. This method increases the range of bugs we can reproduce, but it does have a side-effect that the rate of reproduction decreases without more domain-specific knowledge of the bugs. Be that as it may, our primary goal is to increase the reproduction of bugs in a large number of trials of a program. Therefore, we see the increase as success.
+Table 1: Frequency of Bug Occurrence
+Tests   Occurrence Frequency without Dynamo     Occurrence Frequency with Dynamo
+Atomicity Violation 0.32%   75.55%
+Race Condition  2.04%   21.86%
+The Atomicity Violation and Race Condition tests represent basic test programs that contain the aforementioned bugs. All tests were run 5,000 times.
+In addition to these trivial examples, we originally planned to test Dynamo on well-known applications. Unfortunately, we ran into a number of issues with the dynamic instrumentation layer while testing larger applications. Some of these problems are discussed in more detail in Section 6. Due to time constraints, we have written test programs which contain the essence of a selection of bugs found in the software we intended to test. We describe four such bugs below and present the results of reproducing them with Dynamo in Table 2.
+The first bug occurs in Aget, an application that downloads files over HTTP, when it receives a signal. A log thread dumps the downloaded data to a file and records the number of bytes downloaded. Due to incomplete synchronization, the other threads may continue to update the byte counter while the log thread dumps and, thus, writes inconsistent values to the file. Our program simulates this data race and atomicity violation by copying data and using a global variable to alert the other threads of the emulated signal. We used Dynamo to instrument 10 percent of memory accesses in this program and achieved a reproducibility rate of approximately 20 percent.
+Our next bug is found in Cherokee, a light-weight web server. In this case, locks are improperly used to synchronize the log writer function leading to a data race. The text to be logged is copied to a buffer and a log index is updated to the size of the buffer. The copy operation and update to the log index are not implemented to be atomic. As a result, a buggy interleaving causes corruption in the log file. Our program implements the same vulnerable methods to write to the log file as given in cherokee’s source code and creates two threads each with a different text to be written to the log. We use Dynamo to instrument 10 percent of the memory accesses achieving around 30 percent reproducibility rate as compared to 0 percent when the program is run without any instrumentation.</p>
+
+<p>Table 2: Frequency of Non-Trivial Bug Occurrence
+Source of Bug   Occurrence Frequency without Dynamo Occurrence Frequency with Dynamo
+Aget    0.00%*  18.67%
+Cherokee    0.00%*  29.33%
+Pbzip2  0.02%   35.33%
+MySQL   0.001%  21.00%
+The frequencies of occurrence for the four bugs derived from popular software. Each test was run 20,000 times without Dynamo and 300 times with Dynamo. *We were not able to reproduce the Aget-based and Cherokee-based bugs without Dynamo.
+We discovered an interesting bug in pbzip2, a multi-threaded version of the popular bzip2 compression utility. An older version of the application makes a single call to pthread_join regardless of the number of worker threads. This call causes the main thread to block until the log thread has finished execution; however, this does not guarantee that the worker threads have finished. The main thread proceeds to deallocate shared resources, and if the other threads are still running, the application crashes. Our test program writes to shared data by multiple threads, and when a specific thread exits, the data is deallocated. Even though this bug is not a traditional data race or atomicity violation, we are to reproduce the bug 30 percent of the time with Dynamo.
+Our final bug is a more complicated atomicity violation found in the MySQL database server. The application rotates over a collection of log files that are read and written by separate threads. While MySQL is still writing to a log file, the reading thread reads the data from the open file cache. Otherwise, it opens the file anew. A bug in the program allows the writing thread to close a log after the reading thread has begun reading from the cache. This results in crashing the server. Dynamo reproduces the bug nearly 20 percent of the time. 
+For our performance evaluation, we used the SPLASH-2 [10] benchmark series. These applications test a platform’s ability to scale with multiple processors by performing extensive calculations on all available threads. These applications are useful to us, because they present an upper bound in the required time to run Dynamo on a multithreaded application. These benchmarks are computationally intensive, so every delay we insert has a noticeable penalty. This is not true for I/O intensive and event driven applications, where time is spent waiting for other operations to complete.  Our results are shown in Table 3.</p>
+
+<p>Table 3: Execution Times for Benchmark Applications
+Application Parameters  Average Execution Time without Dynamo (in sec)  Average Execution Time with Dynamo (in sec) Slow Down</p>
+
+<p>FFT FFT -m10 –p1 -n65536 -l4  .0025   7.695   3078X
+FMM 2 Cluster, Plummer, 256 Particles, p1   .0076   7.888   1038X
+Ocean   -n66 -p1 -e1e-07 -r20000 -t28800    .0108   8.067   747X
+These three tests are part of the SPLASH-2 suite. Each test was run for 100 trials with and without Dynamo. The Dynamo runs instrumented ten percent of memory accesses with delays up to 100 milliseconds each. The slow down is the average time with Dynamo divided by the average time without.
+    Our tests, both with benchmarks and other programs, show that applications run at least one thousand times slower with Dynamo. The true cost of running an application under Dynamo is a function of the number of instrumented instructions and the upper bound for delay length. Thus, decreasing the delay time could result in faster runs, but we have not found this to be effective. Decreasing the upper bound decreases the range of delay lengths, and this in turn, decreases the degree of randomness introduced to the thread schedules. Greater randomness increases the uniqueness of each run and increases the probability that a bug will be reproduced. Therefore, we believe that the increased cost of running Dynamo is well spent and is reasonable, given that Dynamo can run thousands of trials unattended.</p>
+
+<h3>
+<a id="6-discussion" class="anchor" href="#6-discussion" aria-hidden="true"><span class="octicon octicon-link"></span></a>6. Discussion</h3>
+
+<p>When designing Dynamo's methodology of finding concurrency faults, we chose binary instrumentation instead of directly controlling the thread scheduler. Instrumentation at the binary level allows our tool to be portable on different platforms. Controlling the underlying scheduler directly would have given us more granular control over thread interleavings. However, in that case Dynamo would work only for a specific environment and would require immense overhaul to work on others. During our design and evaluation stages, we made a few interesting observations which are worth discussing little more in detail. </p>
+
+<h4>
+<a id="performance-overhead" class="anchor" href="#performance-overhead" aria-hidden="true"><span class="octicon octicon-link"></span></a>Performance Overhead</h4>
+
+<p>Dynamo’s instrumentation technique and simple delay algorithm used in its runtime library makes integration easy with different application types. To check for atomicity violations, instead of instrumenting every release lock call, we instrument the exit point of the unlock function in the pthreads library. This allows us to instrument only one point instead of instrumenting every call site and improves performance considerably. However, instrumenting memory accesses incurs a huge performance overhead. Although this amount of overhead is acceptable for unit testing and experimenting with small binaries, it drastically increases for binaries that link against multiple large libraries. The extensible design of Dynamo allows instrumenting only the binary and not the additional libraries. In summary, we believe that Dynamo could be used as a first choice for concurrency bug reproduction if it is allowed to run unattended for a period of time.</p>
+
+<h4>
+<a id="validity" class="anchor" href="#validity" aria-hidden="true"><span class="octicon octicon-link"></span></a>Validity</h4>
+
+<p>Dynamo's development has been motivated by experimental study of buggy programs. The tool has certain limitations which must be considered.  Although we evaluated Dynamo with multiple benchmarks and sample programs, they are smaller in scale than traditional multithreaded software. Though the run time increases, Dynamo demonstrates stability for large benchmark programs. Also, our strategy behind the lock and memory access instrumentation in Dynamo is based on the type of atomicity violation and data race bugs we have come across in our research. We believe that the extensible nature of Dynamo makes it really easy to tweak it for detecting other types of concurrency bugs as well.
+Dyninst Library
+During Dynamo’s development and testing, the Dyninst library proved to be a powerful tool in performing instrumentation on the fly. While testing complete applications, we ran into a number of issues that limited our ability to test those programs. In some tests, Dyninst would not properly handle signals sent to the application. In many cases, this resulted in Dynamo hanging. In other tests, we experienced thread starvation in Dyninst running instrumented binaries. We recognize these problems as a weakness in our tool and admit that Dynamo may not be useful for testing large applications in its current state. 
+In our discussions with members of the Dyninst team, we learned that the primary uses of the library are for performance profiling and not for bug reproduction. As a result, we hope that the problems we have encountered will be useful to the team for enhancing and improving Dyninst. In turn, we plan to utilize these improvements to increase the capabilities of our tool. </p>
+
+<h3>
+<a id="7-related-work" class="anchor" href="#7-related-work" aria-hidden="true"><span class="octicon octicon-link"></span></a>7. Related Work</h3>
+
+<p>The complex problem of finding concurrency bugs in multi-threaded programs is well known. There have been many inspiring works in discovering feasible approaches to detect and reproduce concurrency bugs. During our initial study we found that several methodologies have been proposed for Java programs that use random delays to cause different interleavings in a threaded program. CalFuzzer [11] uses effective techniques to find bugs using a random partial ordering approach.  ConTest [12] uses the notion of introducing delays to find deadlocks in Java programs.<br>
+Yang’s research on concurrency attacks [13] also motivated us to look into POSIX applications.  They demonstrated how defenses in sequential defenses when applied to multithreaded programs can lead to security issues. However, we couldn't find similar tools for POSIX applications and we intend to fill that gap using Dynamo. The most relevant prior work for atomicity violation detection are CTrigger [14] and AVIO [15]. CTrigger does this by identifying low probability interleavings and controls execution of the program to force them to occur. AVIO utilizes training runs to identify interleaving invariants and detects if these invariants get violated on run time.  A simple thread schedule randomization strategy to detect faults and extensible design makes Dynamo a better choice than these tools for different application types.       </p>
+
+<h3>
+<a id="8-conclusion" class="anchor" href="#8-conclusion" aria-hidden="true"><span class="octicon octicon-link"></span></a>8. Conclusion</h3>
+
+<p>Stress testing approaches for concurrency Bug detection have issues with code coverage and reliability. Different possible thread interleavings give concurrency bugs a notorious non-deterministic characteristic and randomization of the thread scheduler proves to be a simpler methodology of discovering concurrency bugs.  In this paper, we presented Dynamo, an extensible framework for randomizing scheduler operations using dynamic instrumentation. We evaluated Dynamo with bugs from commonly used applications, including servers, and performance benchmarks. We believe that the strategy adopted inside Dynamo provides a practical and comprehensive approach to finding concurrency bugs.</p>
+
+<h1>
+<a id="acknowledgments" class="anchor" href="#acknowledgments" aria-hidden="true"><span class="octicon octicon-link"></span></a>Acknowledgments</h1>
+
+<p>We thank Professor Barton Miller for his guidance. We also thank Bill Williams and Emily Gember-Jacobson from the Paradyn Research group for their invaluable help in investigating and fixing Dyninst related bugs. </p>
+
+<h1>
+<a id="references" class="anchor" href="#references" aria-hidden="true"><span class="octicon octicon-link"></span></a>References</h1>
 
 <ol>
-<li>Accuracy - Find valid bugs with particular emphasis on minimizing false positives.</li>
-<li>Replay Support – A replay algorithm to support reproducibility.</li>
-<li>Coverage – Test the entire problem space and prove the absence of faults.</li>
-<li>Extensibility - Plugin based architecture to support enhancements.</li>
+<li> Northeastern Blackout 2003. <a href="http://en.wikipedia.org/wiki/Northeast_blackout_of_2003">http://en.wikipedia.org/wiki/Northeast_blackout_of_2003</a>.</li>
+<li> Savage, S., Burrows, M., Nelson, G., Sobalvarro, P., and Anderson, T. Eraser: A Dynamic Data Race Detector for Multi-Threaded Programs. </li>
+<li> Lamport, L. Time, clock, and the ordering of events in a distributed system. </li>
+<li> Miller, B., Fredriksen, L., and So, B. An Empirical Study of the Reliability of UNIX Utilities. (1989).</li>
+<li> Chang-Seo Park, Koushik Sen: Randomized Active Atomicity Violation Detection in Concurrent Program. (2008).</li>
+<li> Hollingsworth, J. K., Miller, B. P. Dynamic Instrumentation for Scalable Performance Tools. (1994).</li>
+<li> Dyninst Stack Walker. <a href="http://www.dyninst.org/stackwalker">http://www.dyninst.org/stackwalker</a>. </li>
+<li> Dyninst API. <a href="http://www.dyninst.org/dyninst">http://www.dyninst.org/dyninst</a>
+</li>
+<li> Miller B.P., Hollingsworth J.K., Callaghan Mark D., The Paradyn Performance Tool and PVM. (1994).</li>
+<li>Modified SPLASH-2 Home Page. . </li>
+<li>Sen, K. Effective Random Testing of Concurrent Programs. (2007).</li>
+<li>Ur Shmuel, Testing and Debugging Concurrent Software. (2008).</li>
+<li>Yang, J., Cui, A., Stolfo, S., and Sethumadhavan, S. Concurrency Attacks. (2012).</li>
+<li>Park, S., Lu, S., Zhou, Y. CTrigger: Exposing Atomicity Violation Bugs from Their Hiding Places. (2009).</li>
+<li>Lu, S., Tucek, J., Qin, F., and Zhou, Y. AVIO: Detecting atomicity violations via access interleaving invariants. (2006).</li>
 </ol>
 
-<p>We did a study of few existing concurrency testing techniques [2] [3] [4] [5] and found that none of them were calibrated to support the aforementioned characteristics. As part of the first phase of our research we want to develop a fuzzer that is capable of finding concurrency bugs with high probability and tries to achieve a balance between the first three characteristics listed above. If time permits, for the second phase we intend to develop an extensible framework for the tool to support customizations.  </p>
-
-<h3>
-<a id="our-idea" class="anchor" href="#our-idea" aria-hidden="true"><span class="octicon octicon-link"></span></a>Our Idea</h3>
-
-<p>We plan to combine different techniques to create a new method of concurrency bug detection. Fuzz testing has proven itself to be a powerful means of detecting bugs. This type of testing provides an application with random input and records the application’s response. Hanging and crashing signify that the application has failed the test. We will build upon these ideas by randomly scheduling threads to uncover concurrency bugs. However, these bugs often occur infrequently, and we can reduce the required time to find bugs by combining the random scheduling with heuristics. Common concurrency bugs including data races and deadlocks are normally caused by the improper use of synchronization primitives or the lack thereof. Without these primitives, sequences of instructions may be executed in any order. Synchronization reduces the number of possible sequences, and when properly used, eliminates all of the error-causing sequences. This knowledge may be paired with fuzz testing to create random sequences that are most likely to result in exhibiting bugs if they exist.</p>
-
-<p>Our approach will scan the binaries of its target applications to find critical points for concurrency bugs.These points include obtaining and releasing locks, as well as, accessing shared memory. If these points may be executed in any order without changing the output, then there are no concurrency bugs. Our approach also involves adding to the fuzz testing framework to check the output of programs in addition to checking that they do not crash or hang. We selected this approach, because it allows for our tool to learn about applications without requiring source code or developer intervention.</p>
-
-<p>We plan to utilize software debugger’s capabilities of stopping program execution to place stalls in threads. By inserting breakpoints throughout the code, we can stop and start threads in such a way that allows us to control the sequencing of instructions. Programs will run multiple times in the debugger with the breakpoints set in different places to test different sequences. If one sequence fails, our tool will record the results and the breakpoints used. This allows the sequence to be recreated and the programmer to understand what went wrong. The tool will automate running tests to further simplify the task of finding bugs.</p>
-
-<h3>
-<a id="implementation-plan" class="anchor" href="#implementation-plan" aria-hidden="true"><span class="octicon octicon-link"></span></a>Implementation Plan</h3>
-
-<p>We are currently scheduling our project to be completed in eight full weeks after our initial preparation week. This week, week zero, is devoted to finding and reading related research and gaining a high-level insight into debuggers and program analysis. After this week, we will be able to plan the details of our testing tool and begin our implementation. 
-Weeks one and two (12. October - 25. October) are proposed for developing the program analysis portion of the tool. We will build an application that can load an executable binary and locate the critical points for concurrency. These points will be stored in a list with their accompanying type. We plan to look into resources regarding compiler construction and dynamic instrumentation to design and develop this portion of the tool.
-Weeks three and four (26. October - 8. November) will be used for integrating the debugger into our tool. We will also build our central testing algorithm in this stage. After completing program analysis, the tool will fork a new process and run the debugger. Through inter-process communication, the parent process will operate the debugger by instructing it to run the binary with the appropriate breakpoints. The tool will time the execution of the debugger and monitor the output of the application being tested.</p>
-
-<p>Week five and the first half of week six (9. November - 19. November) will be our testing phase. We will run our tool on a variety of concurrent applications, some of which will have known concurrency bugs. If our tool functions properly, it should find the known bugs. We hope to discover some unknown concurrency bugs as well.</p>
-
-<p>The second half of week six and week seven (20. November - 29. November) will be used for performing our analysis of our testing and the tool in general. During this time we will write our final report on the project. </p>
-
-<p>Week eight is slack time, which will be reserved in the case of exceptional circumstances or unforeseen delays. We will finish the project by 28. November.</p>
-
-<h3>
-<a id="evaluation-criteria" class="anchor" href="#evaluation-criteria" aria-hidden="true"><span class="octicon octicon-link"></span></a>Evaluation Criteria</h3>
-
-<p>The concurrency bug detection algorithm and replay algorithm will form the core of our tool. The efficacy of heuristics and models applied in the algorithm implementation would decide if our concurrency failure detection technique performs better than existing testing approaches. During the testing phase, we plan to run our fuzzer on variety of multi-threaded applications. It is important that the fuzzer provides code coverage guarantee, discovers valid bugs and reduces the likelihood of false positives.</p>
-
-<h3>
-<a id="references" class="anchor" href="#references" aria-hidden="true"><span class="octicon octicon-link"></span></a>References</h3>
-
-<p>[1] O. Edelstein, E. Farchi, Y. Nir, G. Ratsaby, S. Ur, “Multithreaded Java program test generation”,pp1,2002.
-[2] Sebastian Burckhardt, Pravesh Kothari, Madanlal Musuvathi “A Randomized Scheduler with Probabilistic Guarantees of Finding Bugs”, March. 2010.
-[3] Evgeny Vainer, Amiram Yehudai, “Controlling Concurrent Behavior while Testing Multithreaded Software”,2013.
-[4] Pallavi Joshi, Mayur Naik, Chang-Seo Park, and Koushik Sen, “CalFuzzer: An Extensible Active Testing Framework for Concurrent Programs”, 2009
-[5] Qingzhou Luo, Sai Zhang, Jianjun Zhao, and Min Hu, “A Lightweight and Portable Approach to Making Concurrent Failures Reproducible”, 2010</p>
-
-<h3>
-<a id="authors" class="anchor" href="#authors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Authors</h3>
-
-<p>Achin Kulshrestha and Alexander Morris.</p>
+<hr>
       </section>
       <footer>
         <p>This project is maintained by <a href="https://github.com/achinkulshrestha">achinkulshrestha</a></p>
