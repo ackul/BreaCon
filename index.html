@@ -37,8 +37,8 @@
 <h4>
 <a id="alexander-morris" class="anchor" href="#alexander-morris" aria-hidden="true"><span class="octicon octicon-link"></span></a>Alexander Morris</h4>
 
-<h2>
-<a id="abstract" class="anchor" href="#abstract" aria-hidden="true"><span class="octicon octicon-link"></span></a>Abstract</h2>
+<h1>
+<a id="abstract" class="anchor" href="#abstract" aria-hidden="true"><span class="octicon octicon-link"></span></a>Abstract</h1>
 
 <p>Multicore hardware has made concurrent programs pervasive. Non-determinism, which naturally accompanies multi-threaded scheduling, increases the difficulty of finding and analyzing concurrency bugs that may occur only under specific thread interleavings. The number of possible interleavings in a multi-threaded program is enormous—exponential to the length of the program and the number of threads. Functional and stress testing techniques do not take into consideration the underlying scheduler's behavior and thus are unable to detect all concurrency bugs. Systematic techniques have been proposed to find faults in multi-threaded programs. However, such techniques do not scale well for large programs as the sample space hugely increases. A simple alternative is to perform randomization of the thread scheduler to generate different interleavings. This paper proposes a framework, Dynamo, which uses binary instrumentation to randomize thread schedules. We evaluate Dynamo using a variety of concurrency bugs found in well-known software, such as MySQL and Cherokee. We also analyze the accuracy and performance of our tool with multi-threaded benchmarks.</p>
 
@@ -186,13 +186,13 @@ Yang’s research on concurrency attacks [13] also motivated us to look into POS
 
 <p>Stress testing approaches for concurrency Bug detection have issues with code coverage and reliability. Different possible thread interleavings give concurrency bugs a notorious non-deterministic characteristic and randomization of the thread scheduler proves to be a simpler methodology of discovering concurrency bugs.  In this paper, we presented Dynamo, an extensible framework for randomizing scheduler operations using dynamic instrumentation. We evaluated Dynamo with bugs from commonly used applications, including servers, and performance benchmarks. We believe that the strategy adopted inside Dynamo provides a practical and comprehensive approach to finding concurrency bugs.</p>
 
-<h1>
-<a id="acknowledgments" class="anchor" href="#acknowledgments" aria-hidden="true"><span class="octicon octicon-link"></span></a>Acknowledgments</h1>
+<h2>
+<a id="acknowledgments" class="anchor" href="#acknowledgments" aria-hidden="true"><span class="octicon octicon-link"></span></a>Acknowledgments</h2>
 
 <p>We thank Professor Barton Miller for his guidance. We also thank Bill Williams and Emily Gember-Jacobson from the Paradyn Research group for their invaluable help in investigating and fixing Dyninst related bugs. </p>
 
-<h1>
-<a id="references" class="anchor" href="#references" aria-hidden="true"><span class="octicon octicon-link"></span></a>References</h1>
+<h2>
+<a id="references" class="anchor" href="#references" aria-hidden="true"><span class="octicon octicon-link"></span></a>References</h2>
 
 <ol>
 <li> Northeastern Blackout 2003. <a href="http://en.wikipedia.org/wiki/Northeast_blackout_of_2003">http://en.wikipedia.org/wiki/Northeast_blackout_of_2003</a>.</li>
